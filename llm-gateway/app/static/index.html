@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Gateway</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #111827;
+      --sidebar:   #0d1117;
+      --surface:   #1f2937;
+      --border:    #374151;
+      --accent:    #60a5fa;
+      --accent-dk: #3b82f6;
+      --text:      #f9fafb;
+      --muted:     #9ca3af;
+      --user-bg:   #1d4ed8;
+      --user-text: #eff6ff;
+      --asst-bg:   #1f2937;
+      --err:       #f87171;
+      --radius:    10px;
+    }
+
+    html, body { height: 100%; overflow: hidden; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── Layout ───────────────────────────────────────────────────── */
+    #shell { display: flex; height: 100vh; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    #sidebar {
+      width: 240px; min-width: 200px; max-width: 280px;
+      background: var(--sidebar); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 0; overflow-y: auto;
+      padding: 16px 14px; gap: 20px;
+    }
+    #sidebar h1 { font-size: 15px; font-weight: 700; letter-spacing: .4px; color: var(--accent); }
+
+    .sb-section { display: flex; flex-direction: column; gap: 6px; }
+    .sb-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+
+    select, input[type=range] { width: 100%; }
+
+    select {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 8px; font-size: 13px; cursor: pointer;
+    }
+    select:focus { outline: 2px solid var(--accent); }
+
+    .range-row { display: flex; align-items: center; gap: 8px; }
+    input[type=range] { flex: 1; accent-color: var(--accent); }
+    #temp-val { font-size: 12px; color: var(--muted); min-width: 24px; text-align: right; }
+
+    textarea#system-prompt {
+      width: 100%; height: 72px; resize: vertical;
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; line-height: 1.5;
+    }
+    textarea#system-prompt:focus { outline: 2px solid var(--accent); }
+
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-label { font-size: 13px; color: var(--muted); }
+
+    /* toggle switch */
+    .toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider-sw {
+      position: absolute; inset: 0; background: var(--border); border-radius: 20px;
+      transition: .2s; cursor: pointer;
+    }
+    .slider-sw::before {
+      content: ""; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px;
+      background: var(--text); border-radius: 50%; transition: .2s;
+    }
+    input:checked + .slider-sw { background: var(--accent-dk); }
+    input:checked + .slider-sw::before { transform: translateX(16px); }
+
+    #session-id {
+      font-family: monospace; font-size: 11px; color: var(--muted);
+      word-break: break-all; line-height: 1.5;
+    }
+
+    .btn-sm {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-sm:hover { background: var(--border); }
+
+    /* ── Main ────────────────────────────────────────────────────── */
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    #topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      background: var(--sidebar);
+    }
+    #topbar-title { font-size: 15px; font-weight: 600; }
+    #status-badge {
+      font-size: 11px; padding: 3px 8px; border-radius: 20px;
+      background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+    }
+
+    /* ── Messages ────────────────────────────────────────────────── */
+    #messages {
+      flex: 1; overflow-y: auto; padding: 24px 20px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .msg { display: flex; flex-direction: column; gap: 4px; max-width: 80%; }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.assistant { align-self: flex-start; align-items: flex-start; }
+    .msg.error { align-self: center; align-items: center; max-width: 60%; }
+
+    .bubble {
+      padding: 10px 14px; border-radius: var(--radius); line-height: 1.6;
+      word-break: break-word; white-space: pre-wrap;
+    }
+    .msg.user .bubble   { background: var(--user-bg); color: var(--user-text); border-radius: var(--radius) var(--radius) 2px var(--radius); }
+    .msg.assistant .bubble { background: var(--asst-bg); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) var(--radius) 2px; }
+    .msg.error .bubble  { background: #450a0a; color: var(--err); border: 1px solid #991b1b; border-radius: var(--radius); font-size: 13px; }
+
+    /* markdown inside assistant bubble */
+    .bubble p { margin-bottom: .6em; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble code { background: #0d1117; padding: 2px 5px; border-radius: 4px; font-size: 13px; font-family: 'JetBrains Mono', monospace, monospace; }
+    .bubble pre { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; overflow-x: auto; margin: .5em 0; }
+    .bubble pre code { background: none; padding: 0; }
+    .bubble ul, .bubble ol { padding-left: 1.4em; margin-bottom: .6em; }
+    .bubble li { margin-bottom: .2em; }
+    .bubble h1, .bubble h2, .bubble h3 { margin: .6em 0 .3em; }
+    .bubble a { color: var(--accent); }
+    .bubble blockquote { border-left: 3px solid var(--border); padding-left: 10px; color: var(--muted); margin: .5em 0; }
+    .bubble table { border-collapse: collapse; margin: .5em 0; }
+    .bubble th, .bubble td { border: 1px solid var(--border); padding: 6px 10px; }
+    .bubble th { background: var(--surface); }
+
+    .msg-meta {
+      font-size: 11px; color: var(--muted);
+      display: flex; align-items: center; gap: 8px; padding: 0 4px;
+    }
+    .meta-pill {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1px 7px; font-size: 10px; color: var(--muted);
+    }
+
+    /* typing indicator */
+    .typing { display: flex; gap: 4px; padding: 10px 14px; align-items: center; }
+    .typing span {
+      width: 6px; height: 6px; background: var(--muted); border-radius: 50%;
+      animation: bounce .9s infinite ease-in-out;
+    }
+    .typing span:nth-child(2) { animation-delay: .15s; }
+    .typing span:nth-child(3) { animation-delay: .30s; }
+    @keyframes bounce { 0%,80%,100% { transform: scale(0.6); opacity:.4; } 40% { transform: scale(1); opacity:1; } }
+
+    /* ── Input bar ───────────────────────────────────────────────── */
+    #inputbar {
+      border-top: 1px solid var(--border); padding: 14px 20px;
+      display: flex; gap: 10px; align-items: flex-end;
+      background: var(--sidebar);
+    }
+    #user-input {
+      flex: 1; background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit;
+      resize: none; min-height: 44px; max-height: 160px; line-height: 1.5;
+      overflow-y: auto;
+    }
+    #user-input:focus { outline: 2px solid var(--accent); }
+    #user-input::placeholder { color: var(--muted); }
+
+    #send-btn {
+      background: var(--accent-dk); color: #fff; border: none;
+      border-radius: 8px; padding: 10px 18px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .15s; white-space: nowrap; height: 44px;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--accent); }
+    #send-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside id="sidebar">
+    <h1>LLM Gateway</h1>
+
+    <div class="sb-section">
+      <span class="sb-label">Model</span>
+      <select id="model-select">
+        <optgroup label="Anthropic">
+          <option value="claude-opus-4-5">claude-opus-4-5</option>
+          <option value="claude-sonnet-4-5-20251001" selected>claude-sonnet-4-5</option>
+          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+        </optgroup>
+        <optgroup label="OpenAI">
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="o3-mini">o3-mini</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="sb-section">
+      <span class="sb-label">Temperature</span>
+      <div class="range-row">
+        <input type="range" id="temp-slider" min="0" max="2" step="0.05" value="0.7" />
+        <span id="temp-val">0.7</span>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <span class="sb-label">System prompt</span>
+      <textarea id="system-prompt" placeholder="Optional system instructions…"></textarea>
+    </div>
+
+    <div class="sb-section">
+      <span class="sb-label">Options</span>
+      <div class="toggle-row">
+        <span class="toggle-label">Stream response</span>
+        <label class="toggle">
+          <input type="checkbox" id="stream-toggle" checked />
+          <span class="slider-sw"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <span class="sb-label">Session</span>
+      <span id="session-id">—</span>
+      <button class="btn-sm" id="new-session-btn">New session</button>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────────────── -->
+  <div id="main">
+    <div id="topbar">
+      <span id="topbar-title">Chat</span>
+      <span id="status-badge">ready</span>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="inputbar">
+      <textarea id="user-input" rows="1" placeholder="Message… (Enter to send, Shift+Enter for newline)"></textarea>
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Markdown / highlight setup ──────────────────────────────────
+  marked.setOptions({ breaks: true, gfm: true });
+  const renderer = new marked.Renderer();
+  renderer.code = ({ text, lang }) => {
+    const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+    const highlighted = hljs.highlight(text, { language }).value;
+    return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+  };
+  marked.use({ renderer });
+
+  // ── State ────────────────────────────────────────────────────────
+  let sessionId = localStorage.getItem('llm_session_id') || null;
+  let busy = false;
+
+  // ── DOM refs ─────────────────────────────────────────────────────
+  const messagesEl   = document.getElementById('messages');
+  const inputEl      = document.getElementById('user-input');
+  const sendBtn      = document.getElementById('send-btn');
+  const modelSelect  = document.getElementById('model-select');
+  const tempSlider   = document.getElementById('temp-slider');
+  const tempVal      = document.getElementById('temp-val');
+  const systemPrompt = document.getElementById('system-prompt');
+  const streamToggle = document.getElementById('stream-toggle');
+  const sessionIdEl  = document.getElementById('session-id');
+  const statusBadge  = document.getElementById('status-badge');
+  const newSessionBtn = document.getElementById('new-session-btn');
+
+  // ── Init ─────────────────────────────────────────────────────────
+  updateSessionDisplay();
+
+  // ── Controls ─────────────────────────────────────────────────────
+  tempSlider.addEventListener('input', () => { tempVal.textContent = tempSlider.value; });
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); trySend(); }
+  });
+
+  sendBtn.addEventListener('click', trySend);
+  newSessionBtn.addEventListener('click', newSession);
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function updateSessionDisplay() {
+    sessionIdEl.textContent = sessionId ? sessionId.slice(0, 18) + '…' : '—';
+  }
+
+  function newSession() {
+    sessionId = null;
+    localStorage.removeItem('llm_session_id');
+    updateSessionDisplay();
+    messagesEl.innerHTML = '';
+    setStatus('ready');
+  }
+
+  function setStatus(text) {
+    statusBadge.textContent = text;
+  }
+
+  function setBusy(val) {
+    busy = val;
+    sendBtn.disabled = val;
+    inputEl.disabled = val;
+    setStatus(val ? 'thinking…' : 'ready');
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addUserMessage(content) {
+    const div = document.createElement('div');
+    div.className = 'msg user';
+    div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+    messagesEl.appendChild(div);
+    scrollToBottom();
+  }
+
+  function addTypingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+    div.id = 'typing-indicator';
+    div.innerHTML = `<div class="bubble typing"><span></span><span></span><span></span></div>`;
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function removeTypingIndicator() {
+    document.getElementById('typing-indicator')?.remove();
+  }
+
+  function addAssistantMessage(content, meta = {}) {
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = marked.parse(content);
+    div.appendChild(bubble);
+
+    const metaEl = buildMeta(meta);
+    if (metaEl) div.appendChild(metaEl);
+
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function buildMeta({ model, provider, inputTokens, outputTokens }) {
+    const parts = [];
+    if (provider) parts.push(`<span class="meta-pill">${provider}</span>`);
+    if (model)    parts.push(`<span class="meta-pill">${model}</span>`);
+    if (inputTokens != null)  parts.push(`<span class="meta-pill">${inputTokens}↑</span>`);
+    if (outputTokens != null) parts.push(`<span class="meta-pill">${outputTokens}↓</span>`);
+    if (!parts.length) return null;
+    const el = document.createElement('div');
+    el.className = 'msg-meta';
+    el.innerHTML = parts.join('');
+    return el;
+  }
+
+  function addErrorMessage(text) {
+    const div = document.createElement('div');
+    div.className = 'msg error';
+    div.innerHTML = `<div class="bubble">Error: ${escapeHtml(text)}</div>`;
+    messagesEl.appendChild(div);
+    scrollToBottom();
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function buildRequest(userContent) {
+    const messages = [];
+    const sys = systemPrompt.value.trim();
+    if (sys) messages.push({ role: 'system', content: sys });
+    messages.push({ role: 'user', content: userContent });
+
+    return {
+      messages,
+      config: {
+        model: modelSelect.value,
+        temperature: parseFloat(tempSlider.value),
+        max_tokens: 2048,
+      },
+      session_id: sessionId || undefined,
+    };
+  }
+
+  // ── Send ─────────────────────────────────────────────────────────
+  function trySend() {
+    if (busy) return;
+    const content = inputEl.value.trim();
+    if (!content) return;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    addUserMessage(content);
+    streamToggle.checked ? sendStream(content) : sendComplete(content);
+  }
+
+  // ── Streaming ────────────────────────────────────────────────────
+  async function sendStream(userContent) {
+    setBusy(true);
+    const indicator = addTypingIndicator();
+    let bubble = null;
+    let fullText = '';
+
+    try {
+      const resp = await fetch('/api/v1/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildRequest(userContent)),
+      });
+
+      if (!resp.ok) {
+        removeTypingIndicator();
+        const data = await resp.json().catch(() => ({ detail: resp.statusText }));
+        addErrorMessage(data.detail || 'Request failed');
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let meta = {};
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE lines
+        let nl;
+        while ((nl = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 2);
+
+          for (const line of block.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+
+            let parsed;
+            try { parsed = JSON.parse(raw); } catch { continue; }
+
+            if (parsed.error) {
+              removeTypingIndicator();
+              addErrorMessage(parsed.error);
+              return;
+            }
+
+            if (parsed.session_id && !sessionId) {
+              sessionId = parsed.session_id;
+              localStorage.setItem('llm_session_id', sessionId);
+              updateSessionDisplay();
+            }
+
+            if (parsed.text) {
+              fullText += parsed.text;
+              if (!bubble) {
+                removeTypingIndicator();
+                bubble = addAssistantMessage(fullText, meta);
+              } else {
+                bubble.innerHTML = marked.parse(fullText);
+                scrollToBottom();
+              }
+            }
+          }
+        }
+      }
+
+      // If no text arrived at all
+      if (!bubble) removeTypingIndicator();
+
+    } catch (err) {
+      removeTypingIndicator();
+      addErrorMessage(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ── Non-streaming ─────────────────────────────────────────────────
+  async function sendComplete(userContent) {
+    setBusy(true);
+    addTypingIndicator();
+
+    try {
+      const resp = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildRequest(userContent)),
+      });
+
+      const data = await resp.json();
+      removeTypingIndicator();
+
+      if (!resp.ok) {
+        addErrorMessage(data.detail || 'Request failed');
+        return;
+      }
+
+      if (data.session_id) {
+        sessionId = data.session_id;
+        localStorage.setItem('llm_session_id', sessionId);
+        updateSessionDisplay();
+      }
+
+      const r = data.response;
+      addAssistantMessage(r.content, {
+        model: r.model,
+        provider: r.provider,
+        inputTokens: r.input_tokens,
+        outputTokens: r.output_tokens,
+      });
+
+    } catch (err) {
+      removeTypingIndicator();
+      addErrorMessage(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+</script>
+</body>
+</html>
