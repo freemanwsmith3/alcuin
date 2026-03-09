@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="gateway-api-key" content="hh4incGSYM2txgPp2ZbGydC1eID3lvXxi6e-aXBR2o4" />
   <title>LLM Gateway</title>
   <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
@@ -260,6 +261,9 @@
 </div>
 
 <script>
+  // ── Auth ────────────────────────────────────────────────────────
+  const GATEWAY_API_KEY = document.querySelector('meta[name="gateway-api-key"]')?.content ?? '';
+
   // ── Markdown / highlight setup ──────────────────────────────────
   marked.setOptions({ breaks: true, gfm: true });
   const renderer = new marked.Renderer();
@@ -435,7 +439,7 @@
     try {
       const resp = await fetch('/api/v1/chat/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
         body: JSON.stringify(buildRequest(userContent)),
       });
 
@@ -515,7 +519,7 @@
     try {
       const resp = await fetch('/api/v1/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
         body: JSON.stringify(buildRequest(userContent)),
       });
 

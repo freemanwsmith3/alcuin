@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 load_dotenv()
 
 from app.api.routes import router
+from app.middleware.auth import AuthMiddleware
 from app.middleware.observability import ObservabilityMiddleware
 
 
@@ -70,7 +71,13 @@ app = FastAPI(
 )
 
 app.add_middleware(ObservabilityMiddleware)
+app.add_middleware(AuthMiddleware)
 app.include_router(router, prefix="/api/v1")
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
 
 # Serve the chat UI — API routes registered above take priority over the mount.
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
