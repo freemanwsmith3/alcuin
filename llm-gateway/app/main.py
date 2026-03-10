@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import logging.config
+import os
 import time
 
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ load_dotenv()
 from app.api.routes import router
 from app.middleware.auth import AuthMiddleware
 from app.middleware.observability import ObservabilityMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 
 
 # ---------------------------------------------------------------------------
@@ -70,8 +72,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
+_rpm = int(os.environ.get("RATE_LIMIT_RPM", 60))
+
 app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(AuthMiddleware)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=_rpm)
 app.include_router(router, prefix="/api/v1")
 
 
