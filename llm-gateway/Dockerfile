@@ -3,7 +3,10 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# arq declares redis<6 but works fine with redis 5.x at runtime.
+# Install arq without its dependency resolver, then install everything else.
+RUN pip install --no-cache-dir --no-deps arq==0.26.1 && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
 

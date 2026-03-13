@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 load_dotenv()
 
 from app.api.routes import router
+from app.api.rag_routes import router as rag_router
 from app.middleware.auth import AuthMiddleware
 from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -67,7 +68,7 @@ logging.config.dictConfig({
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="LLM Gateway",
+    title="Carina's Company",
     description="Multi-provider LLM gateway",
     version="0.1.0",
 )
@@ -78,6 +79,7 @@ app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=_rpm)
 app.include_router(router, prefix="/api/v1")
+app.include_router(rag_router, prefix="/api/v1")
 
 
 @app.get("/health")

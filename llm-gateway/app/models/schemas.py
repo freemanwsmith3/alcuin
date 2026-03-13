@@ -30,6 +30,10 @@ class ChatRequest(BaseModel):
     messages: list[Message] = Field(min_length=1)
     config: ModelConfig
     session_id: Optional[str] = None
+    document_ids: Optional[list[str]] = Field(
+        default=None,
+        description="If provided, retrieve relevant chunks from these documents and inject as context.",
+    )
 
 
 class ChatResponse(BaseModel):

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from functools import lru_cache
 from typing import AsyncIterator
@@ -13,6 +14,19 @@ from app.providers.anthropic import AnthropicProvider
 from app.providers.base import LLMProvider
 from app.providers.openai import OpenAIProvider
 from app.providers.resilient import ResilientProvider
+from app.rag.retriever import retrieve
+
+logger = logging.getLogger(__name__)
+
+_RAG_SYSTEM_PREFIX = """\
+You are a helpful assistant. Answer the user's question using ONLY the context \
+provided below. If the answer is not in the context, say so clearly.
+
+--- CONTEXT ---
+{context}
+--- END CONTEXT ---
+
+"""
 
 router = APIRouter()
 
@@ -50,6 +64,37 @@ def get_usage_store() -> UsageStore:
     return UsageStore()
 
 
+async def _inject_rag_context(messages: list[Message], document_ids: list[str]) -> list[Message]:
+    """Retrieve relevant chunks and prepend them as a system message."""
+    # Use the last user message as the query
+    user_query = next(
+        (m.content for m in reversed(messages) if m.role == "user"), ""
+    )
+    if not user_query:
+        return messages
+
+    chunks = await retrieve(query=user_query, top_k=5, document_ids=document_ids)
+    if not chunks:
+        logger.info("rag_no_results", extra={"query": user_query[:100]})
+        return messages
+
+    context = "\n\n".join(
+        f"[{c.filename} chunk {c.chunk_index} | score {c.score:.2f}]\n{c.content}"
+        for c in chunks
+    )
+    logger.info(
+        "rag_context_injected",
+        extra={"chunks": len(chunks), "query": user_query[:100]},
+    )
+
+    system_message = Message(
+        role="system",
+        content=_RAG_SYSTEM_PREFIX.format(context=context),
+    )
+    # Prepend system message, preserving any existing messages
+    return [system_message] + messages
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
@@ -63,6 +108,9 @@ async def chat(
     try:
         history = await store.get(session_id)
         messages = history + request.messages
+
+        if request.document_ids:
+            messages = await _inject_rag_context(messages, request.document_ids)
 
         response = await provider.complete(messages, request.config)
 
@@ -93,6 +141,9 @@ async def chat_stream(
     provider = get_provider_for_model(request.config.model)
     history = await store.get(session_id)
     messages = history + request.messages
+
+    if request.document_ids:
+        messages = await _inject_rag_context(messages, request.document_ids)
 
     async def generate() -> AsyncIterator[str]:
         collected = []

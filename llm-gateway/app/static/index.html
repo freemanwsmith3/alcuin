@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="gateway-api-key" content="hh4incGSYM2txgPp2ZbGydC1eID3lvXxi6e-aXBR2o4" />
-  <title>LLM Gateway</title>
+  <title>Carina's Company</title>
   <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
@@ -92,6 +92,54 @@
     }
     .btn-sm:hover { background: var(--border); }
 
+    /* ── Documents section ──────────────────────────────────────── */
+    #upload-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      background: var(--surface); color: var(--text); border: 1px dashed var(--border);
+      border-radius: 6px; padding: 7px 10px; font-size: 12px; cursor: pointer;
+      transition: border-color .15s, background .15s; text-align: center;
+    }
+    #upload-btn:hover { border-color: var(--accent); background: #1a2233; }
+    #upload-btn.dragover { border-color: var(--accent); background: #1a2233; }
+    #file-input { display: none; }
+
+    #upload-status {
+      font-size: 11px; color: var(--muted); min-height: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .spin {
+      width: 10px; height: 10px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #doc-list { display: flex; flex-direction: column; gap: 4px; }
+
+    .doc-item {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 8px;
+      font-size: 11px; line-height: 1.4;
+    }
+    .doc-item input[type=checkbox] { flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+    .doc-item input[type=checkbox]:disabled { cursor: not-allowed; }
+    .doc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+    .doc-status {
+      flex-shrink: 0; font-size: 9px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; padding: 1px 5px; border-radius: 8px;
+    }
+    .doc-status.pending   { background: #292524; color: #a8a29e; }
+    .doc-status.processing { background: #1c1a0e; color: #fbbf24; display: flex; align-items: center; gap: 4px; }
+    .doc-status.ready     { background: #052e16; color: #4ade80; }
+    .doc-status.failed    { background: #450a0a; color: var(--err); }
+
+    .rag-badge {
+      font-size: 10px; padding: 1px 6px; border-radius: 8px;
+      background: #1e3a5f; color: var(--accent); border: 1px solid #2563eb;
+      margin-left: 4px; flex-shrink: 0;
+    }
+
     /* ── Main ────────────────────────────────────────────────────── */
     #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
@@ -101,9 +149,15 @@
       background: var(--sidebar);
     }
     #topbar-title { font-size: 15px; font-weight: 600; }
+    #topbar-right { display: flex; align-items: center; gap: 8px; }
     #status-badge {
       font-size: 11px; padding: 3px 8px; border-radius: 20px;
       background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+    }
+    #rag-indicator {
+      font-size: 11px; padding: 3px 8px; border-radius: 20px;
+      background: #1e3a5f; color: var(--accent); border: 1px solid #2563eb;
+      display: none;
     }
 
     /* ── Messages ────────────────────────────────────────────────── */
@@ -142,12 +196,13 @@
 
     .msg-meta {
       font-size: 11px; color: var(--muted);
-      display: flex; align-items: center; gap: 8px; padding: 0 4px;
+      display: flex; align-items: center; gap: 8px; padding: 0 4px; flex-wrap: wrap;
     }
     .meta-pill {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 10px; padding: 1px 7px; font-size: 10px; color: var(--muted);
     }
+    .meta-pill.rag { background: #1e3a5f; border-color: #2563eb; color: var(--accent); }
 
     /* typing indicator */
     .typing { display: flex; gap: 4px; padding: 10px 14px; align-items: center; }
@@ -194,7 +249,7 @@
 
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
   <aside id="sidebar">
-    <h1>LLM Gateway</h1>
+    <h1>Carina's Company</h1>
 
     <div class="sb-section">
       <span class="sb-label">Model</span>
@@ -215,7 +270,7 @@
     <div class="sb-section">
       <span class="sb-label">Temperature</span>
       <div class="range-row">
-        <input type="range" id="temp-slider" min="0" max="2" step="0.05" value="0.7" />
+        <input type="range" id="temp-slider" min="0" max="1" step="0.05" value="0.7" />
         <span id="temp-val">0.7</span>
       </div>
     </div>
@@ -236,6 +291,20 @@
       </div>
     </div>
 
+    <!-- ── Documents ── -->
+    <div class="sb-section">
+      <span class="sb-label">Documents (RAG)</span>
+
+      <label id="upload-btn" for="file-input">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload PDF
+      </label>
+      <input type="file" id="file-input" accept=".pdf" />
+
+      <div id="upload-status"></div>
+      <div id="doc-list"></div>
+    </div>
+
     <div class="sb-section">
       <span class="sb-label">Session</span>
       <span id="session-id">—</span>
@@ -247,7 +316,10 @@
   <div id="main">
     <div id="topbar">
       <span id="topbar-title">Chat</span>
-      <span id="status-badge">ready</span>
+      <div id="topbar-right">
+        <span id="rag-indicator">RAG active</span>
+        <span id="status-badge">ready</span>
+      </div>
     </div>
 
     <div id="messages"></div>
@@ -278,18 +350,27 @@
   let sessionId = localStorage.getItem('llm_session_id') || null;
   let busy = false;
 
+  // documents: [{ id, filename, status, el }]
+  const documents = [];
+  const pollTimers = {};
+
   // ── DOM refs ─────────────────────────────────────────────────────
-  const messagesEl   = document.getElementById('messages');
-  const inputEl      = document.getElementById('user-input');
-  const sendBtn      = document.getElementById('send-btn');
-  const modelSelect  = document.getElementById('model-select');
-  const tempSlider   = document.getElementById('temp-slider');
-  const tempVal      = document.getElementById('temp-val');
-  const systemPrompt = document.getElementById('system-prompt');
-  const streamToggle = document.getElementById('stream-toggle');
-  const sessionIdEl  = document.getElementById('session-id');
-  const statusBadge  = document.getElementById('status-badge');
+  const messagesEl    = document.getElementById('messages');
+  const inputEl       = document.getElementById('user-input');
+  const sendBtn       = document.getElementById('send-btn');
+  const modelSelect   = document.getElementById('model-select');
+  const tempSlider    = document.getElementById('temp-slider');
+  const tempVal       = document.getElementById('temp-val');
+  const systemPrompt  = document.getElementById('system-prompt');
+  const streamToggle  = document.getElementById('stream-toggle');
+  const sessionIdEl   = document.getElementById('session-id');
+  const statusBadge   = document.getElementById('status-badge');
   const newSessionBtn = document.getElementById('new-session-btn');
+  const fileInput     = document.getElementById('file-input');
+  const uploadBtn     = document.getElementById('upload-btn');
+  const uploadStatus  = document.getElementById('upload-status');
+  const docList       = document.getElementById('doc-list');
+  const ragIndicator  = document.getElementById('rag-indicator');
 
   // ── Init ─────────────────────────────────────────────────────────
   updateSessionDisplay();
@@ -309,6 +390,155 @@
   sendBtn.addEventListener('click', trySend);
   newSessionBtn.addEventListener('click', newSession);
 
+  // ── File upload ──────────────────────────────────────────────────
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) uploadFile(fileInput.files[0]);
+    fileInput.value = '';
+  });
+
+  uploadBtn.addEventListener('dragover', e => { e.preventDefault(); uploadBtn.classList.add('dragover'); });
+  uploadBtn.addEventListener('dragleave', () => uploadBtn.classList.remove('dragover'));
+  uploadBtn.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadBtn.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') uploadFile(file);
+    else setUploadStatus('error', 'Only PDF files are supported.');
+  });
+
+  async function uploadFile(file) {
+    setUploadStatus('busy', `Uploading ${file.name}…`);
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const resp = await fetch('/api/v1/rag/documents', {
+        method: 'POST',
+        headers: { 'X-API-Key': GATEWAY_API_KEY },
+        body: form,
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        setUploadStatus('error', data.detail || 'Upload failed');
+        return;
+      }
+
+      setUploadStatus('ok', 'Uploaded — processing…');
+      setTimeout(() => setUploadStatus('', ''), 3000);
+
+      addDocument({ id: data.document_id, filename: data.filename, status: 'pending' });
+      pollStatus(data.document_id);
+
+    } catch (err) {
+      setUploadStatus('error', err.message);
+    }
+  }
+
+  function setUploadStatus(type, text) {
+    if (!text) { uploadStatus.innerHTML = ''; return; }
+    const icon = type === 'busy'  ? '<div class="spin"></div>'
+               : type === 'error' ? '⚠️'
+               : type === 'ok'    ? '✓'
+               : '';
+    const color = type === 'error' ? 'var(--err)' : type === 'ok' ? '#4ade80' : 'var(--muted)';
+    uploadStatus.innerHTML = `<span style="display:flex;align-items:center;gap:6px;color:${color}">${icon}${escapeHtml(text)}</span>`;
+  }
+
+  // ── Document list ────────────────────────────────────────────────
+  function addDocument(doc) {
+    // Avoid duplicates (e.g. page reload with same session)
+    if (documents.find(d => d.id === doc.id)) return;
+
+    const item = document.createElement('div');
+    item.className = 'doc-item';
+    item.dataset.id = doc.id;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.disabled = doc.status !== 'ready';
+    cb.addEventListener('change', updateRagIndicator);
+
+    const name = document.createElement('span');
+    name.className = 'doc-name';
+    name.title = doc.filename;
+    name.textContent = doc.filename;
+
+    const badge = document.createElement('span');
+    badge.className = `doc-status ${doc.status}`;
+    badge.textContent = doc.status === 'processing' ? '' : doc.status;
+    if (doc.status === 'processing' || doc.status === 'pending') {
+      const spin = document.createElement('div');
+      spin.className = 'spin';
+      badge.appendChild(spin);
+      if (doc.status === 'processing') badge.appendChild(document.createTextNode(' proc…'));
+    }
+
+    item.appendChild(cb);
+    item.appendChild(name);
+    item.appendChild(badge);
+    docList.appendChild(item);
+
+    const entry = { id: doc.id, filename: doc.filename, status: doc.status, el: item, cb, badge };
+    documents.push(entry);
+    return entry;
+  }
+
+  function updateDocStatus(id, status) {
+    const doc = documents.find(d => d.id === id);
+    if (!doc) return;
+    doc.status = status;
+    doc.badge.className = `doc-status ${status}`;
+    doc.badge.innerHTML = '';
+
+    if (status === 'ready') {
+      doc.badge.textContent = 'ready';
+      doc.cb.disabled = false;
+      doc.cb.checked = true;  // auto-select when ready
+      updateRagIndicator();
+    } else if (status === 'failed') {
+      doc.badge.textContent = 'failed';
+      doc.cb.disabled = true;
+    } else {
+      const spin = document.createElement('div');
+      spin.className = 'spin';
+      doc.badge.appendChild(spin);
+      doc.badge.appendChild(document.createTextNode(status === 'processing' ? ' proc…' : ''));
+    }
+  }
+
+  async function pollStatus(id) {
+    if (pollTimers[id]) return;
+
+    const tick = async () => {
+      try {
+        const resp = await fetch(`/api/v1/rag/documents/${id}`, {
+          headers: { 'X-API-Key': GATEWAY_API_KEY },
+        });
+        const data = await resp.json();
+        updateDocStatus(id, data.status);
+
+        if (data.status === 'ready' || data.status === 'failed') {
+          clearInterval(pollTimers[id]);
+          delete pollTimers[id];
+        }
+      } catch { /* network hiccup, keep polling */ }
+    };
+
+    await tick();
+    pollTimers[id] = setInterval(tick, 3000);
+  }
+
+  function getSelectedDocIds() {
+    return documents.filter(d => d.cb.checked && d.status === 'ready').map(d => d.id);
+  }
+
+  function updateRagIndicator() {
+    const active = getSelectedDocIds().length > 0;
+    ragIndicator.style.display = active ? 'block' : 'none';
+  }
+
   // ── Helpers ──────────────────────────────────────────────────────
   function updateSessionDisplay() {
     sessionIdEl.textContent = sessionId ? sessionId.slice(0, 18) + '…' : '—';
@@ -322,9 +552,7 @@
     setStatus('ready');
   }
 
-  function setStatus(text) {
-    statusBadge.textContent = text;
-  }
+  function setStatus(text) { statusBadge.textContent = text; }
 
   function setBusy(val) {
     busy = val;
@@ -333,14 +561,20 @@
     setStatus(val ? 'thinking…' : 'ready');
   }
 
-  function scrollToBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
-  function addUserMessage(content) {
+  function addUserMessage(content, docIds) {
     const div = document.createElement('div');
     div.className = 'msg user';
-    div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+    let html = `<div class="bubble">${escapeHtml(content)}</div>`;
+    if (docIds && docIds.length) {
+      const names = docIds.map(id => {
+        const d = documents.find(x => x.id === id);
+        return d ? d.filename : id;
+      });
+      html += `<div class="msg-meta">${names.map(n => `<span class="meta-pill rag">📄 ${escapeHtml(n)}</span>`).join('')}</div>`;
+    }
+    div.innerHTML = html;
     messagesEl.appendChild(div);
     scrollToBottom();
   }
@@ -355,9 +589,7 @@
     return div;
   }
 
-  function removeTypingIndicator() {
-    document.getElementById('typing-indicator')?.remove();
-  }
+  function removeTypingIndicator() { document.getElementById('typing-indicator')?.remove(); }
 
   function addAssistantMessage(content, meta = {}) {
     const div = document.createElement('div');
@@ -376,12 +608,13 @@
     return bubble;
   }
 
-  function buildMeta({ model, provider, inputTokens, outputTokens }) {
+  function buildMeta({ model, provider, inputTokens, outputTokens, ragDocs }) {
     const parts = [];
-    if (provider) parts.push(`<span class="meta-pill">${provider}</span>`);
-    if (model)    parts.push(`<span class="meta-pill">${model}</span>`);
-    if (inputTokens != null)  parts.push(`<span class="meta-pill">${inputTokens}↑</span>`);
+    if (provider)          parts.push(`<span class="meta-pill">${provider}</span>`);
+    if (model)             parts.push(`<span class="meta-pill">${model}</span>`);
+    if (inputTokens  != null) parts.push(`<span class="meta-pill">${inputTokens}↑</span>`);
     if (outputTokens != null) parts.push(`<span class="meta-pill">${outputTokens}↓</span>`);
+    if (ragDocs && ragDocs.length) parts.push(`<span class="meta-pill rag">RAG · ${ragDocs.length} doc${ragDocs.length > 1 ? 's' : ''}</span>`);
     if (!parts.length) return null;
     const el = document.createElement('div');
     el.className = 'msg-meta';
@@ -398,16 +631,16 @@
   }
 
   function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function buildRequest(userContent) {
+  function buildRequest(userContent, docIds) {
     const messages = [];
     const sys = systemPrompt.value.trim();
     if (sys) messages.push({ role: 'system', content: sys });
     messages.push({ role: 'user', content: userContent });
 
-    return {
+    const req = {
       messages,
       config: {
         model: modelSelect.value,
@@ -416,6 +649,8 @@
       },
       session_id: sessionId || undefined,
     };
+    if (docIds && docIds.length) req.document_ids = docIds;
+    return req;
   }
 
   // ── Send ─────────────────────────────────────────────────────────
@@ -423,16 +658,17 @@
     if (busy) return;
     const content = inputEl.value.trim();
     if (!content) return;
+    const docIds = getSelectedDocIds();
     inputEl.value = '';
     inputEl.style.height = 'auto';
-    addUserMessage(content);
-    streamToggle.checked ? sendStream(content) : sendComplete(content);
+    addUserMessage(content, docIds);
+    streamToggle.checked ? sendStream(content, docIds) : sendComplete(content, docIds);
   }
 
   // ── Streaming ────────────────────────────────────────────────────
-  async function sendStream(userContent) {
+  async function sendStream(userContent, docIds) {
     setBusy(true);
-    const indicator = addTypingIndicator();
+    addTypingIndicator();
     let bubble = null;
     let fullText = '';
 
@@ -440,7 +676,7 @@
       const resp = await fetch('/api/v1/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
-        body: JSON.stringify(buildRequest(userContent)),
+        body: JSON.stringify(buildRequest(userContent, docIds)),
       });
 
       if (!resp.ok) {
@@ -453,14 +689,12 @@
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let meta = {};
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        // Process complete SSE lines
         let nl;
         while ((nl = buffer.indexOf('\n\n')) !== -1) {
           const block = buffer.slice(0, nl);
@@ -474,11 +708,7 @@
             let parsed;
             try { parsed = JSON.parse(raw); } catch { continue; }
 
-            if (parsed.error) {
-              removeTypingIndicator();
-              addErrorMessage(parsed.error);
-              return;
-            }
+            if (parsed.error) { removeTypingIndicator(); addErrorMessage(parsed.error); return; }
 
             if (parsed.session_id && !sessionId) {
               sessionId = parsed.session_id;
@@ -490,7 +720,7 @@
               fullText += parsed.text;
               if (!bubble) {
                 removeTypingIndicator();
-                bubble = addAssistantMessage(fullText, meta);
+                bubble = addAssistantMessage(fullText, { ragDocs: docIds });
               } else {
                 bubble.innerHTML = marked.parse(fullText);
                 scrollToBottom();
@@ -500,7 +730,6 @@
         }
       }
 
-      // If no text arrived at all
       if (!bubble) removeTypingIndicator();
 
     } catch (err) {
@@ -512,7 +741,7 @@
   }
 
   // ── Non-streaming ─────────────────────────────────────────────────
-  async function sendComplete(userContent) {
+  async function sendComplete(userContent, docIds) {
     setBusy(true);
     addTypingIndicator();
 
@@ -520,16 +749,13 @@
       const resp = await fetch('/api/v1/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
-        body: JSON.stringify(buildRequest(userContent)),
+        body: JSON.stringify(buildRequest(userContent, docIds)),
       });
 
       const data = await resp.json();
       removeTypingIndicator();
 
-      if (!resp.ok) {
-        addErrorMessage(data.detail || 'Request failed');
-        return;
-      }
+      if (!resp.ok) { addErrorMessage(data.detail || 'Request failed'); return; }
 
       if (data.session_id) {
         sessionId = data.session_id;
@@ -543,6 +769,7 @@
         provider: r.provider,
         inputTokens: r.input_tokens,
         outputTokens: r.output_tokens,
+        ragDocs: docIds,
       });
 
     } catch (err) {
