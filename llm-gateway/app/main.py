@@ -6,14 +6,19 @@ import logging.config
 import os
 import time
 
+from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
+import redis.asyncio as aioredis
+
 from app.api.routes import router
 from app.api.rag_routes import router as rag_router
+from app.auth.routes import router as auth_router
 from app.middleware.auth import AuthMiddleware
 from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -67,10 +72,21 @@ logging.config.dictConfig({
 # App
 # ---------------------------------------------------------------------------
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.redis = aioredis.from_url(
+        os.environ.get("REDIS_URL", "redis://localhost:6379"),
+        decode_responses=False,
+    )
+    yield
+    await app.state.redis.aclose()
+
+
 app = FastAPI(
     title="Carina's Company",
     description="Multi-provider LLM gateway",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 _rpm = int(os.environ.get("RATE_LIMIT_RPM", 60))
@@ -80,6 +96,7 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=_rpm)
 app.include_router(router, prefix="/api/v1")
 app.include_router(rag_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -8,9 +8,10 @@ from typing import Optional
 
 from arq import create_pool as arq_create_pool
 from arq.connections import RedisSettings
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
+from app.auth.dependencies import CurrentUser, get_current_user
 from app.rag import db, storage
 from app.rag.retriever import retrieve
 
@@ -29,7 +30,10 @@ async def _enqueue(document_id: str) -> None:
 
 
 @router.post("/documents", status_code=202)
-async def upload_document(file: UploadFile = File(...)) -> dict:
+async def upload_document(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> dict:
     """Upload a PDF. Returns immediately with a document_id to poll for status."""
     if file.content_type not in ("application/pdf", "application/octet-stream"):
         raise HTTPException(status_code=400, detail="only PDF files are accepted")
@@ -44,7 +48,6 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
     filename = file.filename or "upload.pdf"
     storage_key = f"documents/{document_id}/{filename}"
 
-    # Store raw PDF in MinIO
     try:
         storage.ensure_bucket()
         storage.upload(storage_key, data, content_type="application/pdf")
@@ -52,20 +55,19 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
         logger.exception("minio upload failed")
         raise HTTPException(status_code=502, detail="storage error") from exc
 
-    # Insert document row in Postgres
     async with db.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO documents (id, filename, content_type, size_bytes, storage_key, status)
-            VALUES ($1, $2, 'application/pdf', $3, $4, 'pending')
+            INSERT INTO documents (id, filename, content_type, size_bytes, storage_key, status, user_id)
+            VALUES ($1, $2, 'application/pdf', $3, $4, 'pending', $5)
             """,
             document_id,
             filename,
             len(data),
             storage_key,
+            current_user.id,
         )
 
-    # Enqueue arq job for async processing
     await _enqueue(document_id)
 
     return {
@@ -77,15 +79,19 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
 
 
 @router.get("/documents/{document_id}")
-async def get_document(document_id: str) -> dict:
+async def get_document(
+    document_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> dict:
     """Poll processing status for an uploaded document."""
     async with db.acquire() as conn:
         row = await conn.fetchrow(
             """
             SELECT id, filename, size_bytes, status, error_message, chunk_count, created_at
-            FROM documents WHERE id = $1
+            FROM documents WHERE id = $1 AND user_id = $2
             """,
             document_id,
+            current_user.id,
         )
 
     if row is None:
@@ -117,17 +123,18 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/query")
-async def query_documents(request: QueryRequest) -> dict:
-    """
-    Semantic search across ingested documents.
-    Returns the top_k most relevant chunks with similarity scores.
-    """
+async def query_documents(
+    request: QueryRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """Semantic search across the current user's ingested documents."""
     try:
         chunks = await retrieve(
             query=request.query,
             top_k=request.top_k,
             document_ids=request.document_ids,
             min_score=request.min_score,
+            user_id=current_user.id,
         )
     except Exception as exc:
         logger.exception("retrieval failed")

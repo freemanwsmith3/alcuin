@@ -27,10 +27,10 @@
       --radius:    10px;
     }
 
-    html, body { height: 100%; overflow: hidden; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+    html, body { height: 100%; height: 100dvh; overflow: hidden; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
 
     /* ── Layout ───────────────────────────────────────────────────── */
-    #shell { display: flex; height: 100vh; }
+    #shell { display: flex; height: 100vh; height: 100dvh; }
 
     /* ── Sidebar ─────────────────────────────────────────────────── */
     #sidebar {
@@ -242,9 +242,108 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Mobile ──────────────────────────────────────────────────── */
+    #menu-btn {
+      display: none; background: none; border: none; color: var(--text);
+      cursor: pointer; padding: 4px; line-height: 0;
+    }
+
+    #sidebar-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      z-index: 99;
+    }
+    #sidebar-overlay.open { display: block; }
+
+    @media (max-width: 640px) {
+      #menu-btn { display: block; }
+
+      #sidebar {
+        position: fixed; top: 0; left: 0; height: 100%; height: 100dvh; z-index: 100;
+        transform: translateX(-100%); transition: transform .25s ease;
+        width: 280px; max-width: 85vw;
+      }
+      #sidebar.open { transform: translateX(0); }
+
+      .msg { max-width: 92%; }
+
+      #messages { padding: 16px 12px; }
+
+      #inputbar { padding: 10px 12px; }
+
+      #topbar { padding: 10px 14px; }
+    }
+
+    /* ── Auth overlay ────────────────────────────────────────────── */
+    #auth-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 16px;
+    }
+    #auth-overlay.hidden { display: none; }
+
+    .auth-card {
+      background: var(--sidebar); border: 1px solid var(--border);
+      border-radius: 12px; padding: 32px; width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .auth-card h2 { font-size: 18px; font-weight: 700; color: var(--accent); text-align: center; }
+
+    .auth-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .auth-tab {
+      flex: 1; padding: 8px; font-size: 13px; font-weight: 600;
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .auth-tab.active { background: var(--surface); color: var(--text); }
+
+    .auth-fields { display: flex; flex-direction: column; gap: 10px; }
+    .auth-fields input {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; font-size: 14px; font-family: inherit; width: 100%;
+    }
+    .auth-fields input:focus { outline: 2px solid var(--accent); }
+    .auth-fields input::placeholder { color: var(--muted); }
+
+    .auth-submit {
+      background: var(--accent-dk); color: #fff; border: none;
+      border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .15s; width: 100%;
+    }
+    .auth-submit:hover:not(:disabled) { background: var(--accent); }
+    .auth-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    .auth-error { font-size: 12px; color: var(--err); text-align: center; min-height: 16px; }
+
+    .btn-danger {
+      background: #450a0a; color: var(--err); border: 1px solid #991b1b;
+      border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+      transition: background .15s; width: 100%; text-align: left;
+    }
+    .btn-danger:hover { background: #7f1d1d; }
   </style>
 </head>
 <body>
+
+<!-- ── Auth overlay ────────────────────────────────────────────────── -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <h2>Carina's Company</h2>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login">Login</button>
+      <button class="auth-tab" id="tab-register">Register</button>
+    </div>
+    <div class="auth-fields">
+      <input type="text" id="auth-username" placeholder="Username" autocomplete="username" />
+      <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" />
+      <input type="email" id="auth-email" placeholder="Email (optional)" autocomplete="email" style="display:none" />
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <button class="auth-submit" id="auth-submit">Login</button>
+  </div>
+</div>
+
+<div id="sidebar-overlay"></div>
 <div id="shell">
 
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
@@ -310,11 +409,20 @@
       <span id="session-id">—</span>
       <button class="btn-sm" id="new-session-btn">New session</button>
     </div>
+
+    <div class="sb-section">
+      <span class="sb-label">Account</span>
+      <span id="current-username" style="font-size:12px;color:var(--muted)">—</span>
+      <button class="btn-danger" id="logout-btn">Logout</button>
+    </div>
   </aside>
 
   <!-- ── Main ────────────────────────────────────────────────────── -->
   <div id="main">
     <div id="topbar">
+      <button id="menu-btn" aria-label="Open settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <span id="topbar-title">Chat</span>
       <div id="topbar-right">
         <span id="rag-indicator">RAG active</span>
@@ -333,8 +441,177 @@
 </div>
 
 <script>
-  // ── Auth ────────────────────────────────────────────────────────
+  // ── Constants ───────────────────────────────────────────────────
   const GATEWAY_API_KEY = document.querySelector('meta[name="gateway-api-key"]')?.content ?? '';
+
+  // ── Token storage ────────────────────────────────────────────────
+  const tokens = {
+    get access()  { return localStorage.getItem('access_token'); },
+    get refresh() { return localStorage.getItem('refresh_token'); },
+    get username(){ return localStorage.getItem('auth_username'); },
+    set(access, refresh, username) {
+      localStorage.setItem('access_token',  access);
+      localStorage.setItem('refresh_token', refresh);
+      localStorage.setItem('auth_username', username);
+    },
+    clear() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('auth_username');
+    },
+  };
+
+  // ── Authenticated fetch (auto-refresh on 401) ─────────────────────
+  async function apiFetch(url, options = {}) {
+    const headers = {
+      'X-API-Key': GATEWAY_API_KEY,
+      ...options.headers,
+    };
+    if (tokens.access) headers['Authorization'] = `Bearer ${tokens.access}`;
+
+    let resp = await fetch(url, { ...options, headers });
+
+    if (resp.status === 401 && tokens.refresh) {
+      // Try to refresh the access token
+      const refreshResp = await fetch('/api/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
+        body: JSON.stringify({ refresh_token: tokens.refresh }),
+      });
+
+      if (refreshResp.ok) {
+        const data = await refreshResp.json();
+        tokens.set(data.access_token, data.refresh_token, tokens.username);
+        headers['Authorization'] = `Bearer ${data.access_token}`;
+        resp = await fetch(url, { ...options, headers });
+      } else {
+        // Refresh token expired — force logout
+        showAuth();
+        return resp;
+      }
+    }
+    return resp;
+  }
+
+  // ── Auth overlay ─────────────────────────────────────────────────
+  const authOverlay    = document.getElementById('auth-overlay');
+  const tabLogin       = document.getElementById('tab-login');
+  const tabRegister    = document.getElementById('tab-register');
+  const authUsername   = document.getElementById('auth-username');
+  const authPassword   = document.getElementById('auth-password');
+  const authEmail      = document.getElementById('auth-email');
+  const authSubmit     = document.getElementById('auth-submit');
+  const authError      = document.getElementById('auth-error');
+  const currentUsernameEl = document.getElementById('current-username');
+
+  let authMode = 'login';
+
+  function showAuth() {
+    tokens.clear();
+    authOverlay.classList.remove('hidden');
+    authUsername.value = '';
+    authPassword.value = '';
+    authEmail.value = '';
+    authError.textContent = '';
+    currentUsernameEl.textContent = '—';
+  }
+
+  function hideAuth(username) {
+    authOverlay.classList.add('hidden');
+    currentUsernameEl.textContent = username;
+  }
+
+  tabLogin.addEventListener('click', () => {
+    authMode = 'login';
+    tabLogin.classList.add('active');
+    tabRegister.classList.remove('active');
+    authEmail.style.display = 'none';
+    authSubmit.textContent = 'Login';
+    authError.textContent = '';
+  });
+
+  tabRegister.addEventListener('click', () => {
+    authMode = 'register';
+    tabRegister.classList.add('active');
+    tabLogin.classList.remove('active');
+    authEmail.style.display = '';
+    authSubmit.textContent = 'Register';
+    authError.textContent = '';
+  });
+
+  authSubmit.addEventListener('click', handleAuth);
+  [authUsername, authPassword, authEmail].forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth(); });
+  });
+
+  async function handleAuth() {
+    const username = authUsername.value.trim();
+    const password = authPassword.value;
+    if (!username || !password) { authError.textContent = 'Username and password required.'; return; }
+
+    authSubmit.disabled = true;
+    authError.textContent = '';
+
+    try {
+      if (authMode === 'register') {
+        const regResp = await fetch('/api/v1/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
+          body: JSON.stringify({ username, password, email: authEmail.value.trim() || undefined }),
+        });
+        const regData = await regResp.json();
+        if (!regResp.ok) { authError.textContent = regData.detail || 'Registration failed.'; return; }
+      }
+
+      const loginResp = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
+        body: JSON.stringify({ username, password }),
+      });
+      const loginData = await loginResp.json();
+      if (!loginResp.ok) { authError.textContent = loginData.detail || 'Login failed.'; return; }
+
+      tokens.set(loginData.access_token, loginData.refresh_token, username);
+      hideAuth(username);
+
+    } catch (err) {
+      authError.textContent = err.message;
+    } finally {
+      authSubmit.disabled = false;
+    }
+  }
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    if (tokens.refresh) {
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
+        body: JSON.stringify({ refresh_token: tokens.refresh }),
+      }).catch(() => {});
+    }
+    showAuth();
+    messagesEl.innerHTML = '';
+    documents.length = 0;
+    docList.innerHTML = '';
+    newSession();
+  });
+
+  // ── Init: check for existing session ─────────────────────────────
+  if (tokens.access) {
+    hideAuth(tokens.username || '');
+  }
+
+  // ── Sidebar drawer (mobile) ──────────────────────────────────────
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+  document.getElementById('menu-btn').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    sidebarOverlay.classList.toggle('open');
+  });
+  sidebarOverlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('open');
+  });
 
   // ── Markdown / highlight setup ──────────────────────────────────
   marked.setOptions({ breaks: true, gfm: true });
@@ -413,9 +690,8 @@
     form.append('file', file);
 
     try {
-      const resp = await fetch('/api/v1/rag/documents', {
+      const resp = await apiFetch('/api/v1/rag/documents', {
         method: 'POST',
-        headers: { 'X-API-Key': GATEWAY_API_KEY },
         body: form,
       });
       const data = await resp.json();
@@ -513,9 +789,7 @@
 
     const tick = async () => {
       try {
-        const resp = await fetch(`/api/v1/rag/documents/${id}`, {
-          headers: { 'X-API-Key': GATEWAY_API_KEY },
-        });
+        const resp = await apiFetch(`/api/v1/rag/documents/${id}`);
         const data = await resp.json();
         updateDocStatus(id, data.status);
 
@@ -673,9 +947,9 @@
     let fullText = '';
 
     try {
-      const resp = await fetch('/api/v1/chat/stream', {
+      const resp = await apiFetch('/api/v1/chat/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildRequest(userContent, docIds)),
       });
 
@@ -746,9 +1020,9 @@
     addTypingIndicator();
 
     try {
-      const resp = await fetch('/api/v1/chat', {
+      const resp = await apiFetch('/api/v1/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': GATEWAY_API_KEY },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildRequest(userContent, docIds)),
       });
 

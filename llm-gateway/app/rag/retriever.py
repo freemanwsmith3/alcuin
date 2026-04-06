@@ -26,18 +26,19 @@ async def retrieve(
     top_k: int = 5,
     document_ids: list[str] | None = None,
     min_score: float = 0.0,
+    user_id: str | None = None,
 ) -> list[RetrievedChunk]:
     """
     Embed query, search pgvector for nearest chunks, return ranked results.
 
     document_ids: optional filter — only search within these documents.
     min_score: discard chunks below this cosine similarity threshold.
+    user_id: restrict search to documents owned by this user.
     """
     t0 = time.perf_counter()
     query_embedding = await embed_query(query)
     embed_ms = round((time.perf_counter() - t0) * 1000, 2)
 
-    # pgvector expects the vector as a string: '[0.1, 0.2, ...]'
     embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
 
     t1 = time.perf_counter()
@@ -56,6 +57,7 @@ async def retrieve(
                 JOIN documents d ON d.id = c.document_id
                 WHERE c.document_id = ANY($2::uuid[])
                   AND d.status = 'ready'
+                  AND ($5::uuid IS NULL OR d.user_id = $5::uuid)
                   AND 1 - (c.embedding <=> $1::vector) >= $3
                 ORDER BY c.embedding <=> $1::vector
                 LIMIT $4
@@ -64,6 +66,7 @@ async def retrieve(
                 document_ids,
                 min_score,
                 top_k,
+                user_id,
             )
         else:
             rows = await conn.fetch(
@@ -78,6 +81,7 @@ async def retrieve(
                 FROM chunks c
                 JOIN documents d ON d.id = c.document_id
                 WHERE d.status = 'ready'
+                  AND ($4::uuid IS NULL OR d.user_id = $4::uuid)
                   AND 1 - (c.embedding <=> $1::vector) >= $2
                 ORDER BY c.embedding <=> $1::vector
                 LIMIT $3
@@ -85,6 +89,7 @@ async def retrieve(
                 embedding_str,
                 min_score,
                 top_k,
+                user_id,
             )
     search_ms = round((time.perf_counter() - t1) * 1000, 2)
 
