@@ -1,3 +1,6 @@
+# Azure
+azure-storage-blob==12.25.1
+
 # Auth
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
