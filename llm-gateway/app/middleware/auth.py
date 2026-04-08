@@ -26,10 +26,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         path = request.url.path
 
-        # Pass through docs and non-API paths (static frontend, health, etc.)
-        if not path.startswith("/api/") or any(
+        # Pass through CORS preflight, docs, and non-API paths
+        if request.method == "OPTIONS" or not path.startswith("/api/") or any(
             path.startswith(p) for p in self._SKIP_PREFIXES
         ):
+            return await call_next(request)
+
+        # Allow requests carrying a JWT Bearer token — the route-level
+        # get_current_user dependency handles JWT verification.
+        if request.headers.get("Authorization", "").startswith("Bearer "):
             return await call_next(request)
 
         expected = os.environ.get("GATEWAY_API_KEY", "")
