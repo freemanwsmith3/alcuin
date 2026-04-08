@@ -1,0 +1,26 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'llm-gateway/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/alcuin-repo/llm-gateway
+            git -C ~/alcuin-repo pull origin main
+            sudo docker compose build gateway worker
+            sudo docker compose up -d
+            sudo docker compose exec -T postgres psql -U gateway -d gateway \
+              -c "SELECT 1" > /dev/null && echo "DB healthy"
