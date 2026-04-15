@@ -28,9 +28,9 @@ function ChatLayout() {
   )
 }
 
-export function ChatApp() {
+export function ChatApp({ company }: { company?: string }) {
   return (
-    <ChatProvider>
+    <ChatProvider company={company ?? null}>
       <ChatLayout />
     </ChatProvider>
   )

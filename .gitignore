@@ -1,3 +1,6 @@
+# Exclude frontend lib from Python lib/ ignore
+!alcuin-ui/lib/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
