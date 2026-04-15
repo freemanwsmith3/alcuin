@@ -83,6 +83,7 @@ export function ChatSidebar() {
     toggleDocument,
     settings,
     updateSettings,
+    company,
   } = useChatContext()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -109,7 +110,7 @@ export function ChatSidebar() {
           <MessageSquare className="h-5 w-5 text-sidebar-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-semibold text-sidebar-foreground truncate">{"Carina's Company"}</h1>
+          <h1 className="text-sm font-semibold text-sidebar-foreground truncate">{company ?? "Alcuin"}</h1>
           <p className="text-xs text-muted-foreground">AI Chat Assistant</p>
         </div>
       </div>

@@ -10,8 +10,8 @@ interface ChatContextType {
   company: string | null
   user: User | null
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<boolean>
-  register: (username: string, password: string) => Promise<boolean>
+  login: (username: string, password: string) => Promise<string | null>
+  register: (username: string, password: string) => Promise<string | null>
   logout: () => void
   messages: Message[]
   isTyping: boolean
@@ -83,6 +83,22 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   return resp
 }
 
+// Parses FastAPI error responses into a human-readable string.
+// 422 responses have detail as an array of validation errors.
+// Other errors have detail as a plain string.
+function parseApiError(body: Record<string, unknown>, status: number): string {
+  if (body.detail) {
+    if (Array.isArray(body.detail)) {
+      return body.detail.map((e: Record<string, unknown>) => String(e.msg ?? e)).join(". ")
+    }
+    return String(body.detail)
+  }
+  if (status === 409) return "That username is already taken."
+  if (status === 401) return "Invalid username or password."
+  if (status === 422) return "Invalid input. Check your username and password."
+  return "Something went wrong. Please try again."
+}
+
 export function ChatProvider({ children, company = null }: { children: ReactNode; company?: string | null }) {
   const [user, setUser]           = useState<User | null>(null)
   const [messages, setMessages]   = useState<Message[]>([])
@@ -109,44 +125,50 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   }, [])
 
   // ── Auth ──────────────────────────────────────────────────────────
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (username: string, password: string): Promise<string | null> => {
     try {
       const resp = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": GATEWAY_API_KEY },
         body: JSON.stringify({ username, password }),
       })
-      if (!resp.ok) return false
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        return parseApiError(err, resp.status)
+      }
       const data = await resp.json()
       tokens.set(data.access_token, data.refresh_token, username)
       setUser({ username })
-      return true
+      return null
     } catch {
-      return false
+      return "Could not reach the server. Please try again."
     }
   }, [])
 
-  const register = useCallback(async (username: string, password: string): Promise<boolean> => {
+  const register = useCallback(async (username: string, password: string): Promise<string | null> => {
     try {
       const regResp = await fetch(`${API_BASE}/api/v1/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": GATEWAY_API_KEY },
         body: JSON.stringify({ username, password }),
       })
-      if (!regResp.ok) return false
+      if (!regResp.ok) {
+        const err = await regResp.json().catch(() => ({}))
+        return parseApiError(err, regResp.status)
+      }
 
       const loginResp = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": GATEWAY_API_KEY },
         body: JSON.stringify({ username, password }),
       })
-      if (!loginResp.ok) return false
+      if (!loginResp.ok) return "Account created but login failed. Please sign in manually."
       const data = await loginResp.json()
       tokens.set(data.access_token, data.refresh_token, username)
       setUser({ username })
-      return true
+      return null
     } catch {
-      return false
+      return "Could not reach the server. Please try again."
     }
   }, [])
 

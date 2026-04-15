@@ -10,7 +10,7 @@ import { useChatContext } from "@/lib/chat-context"
 import { MessageSquare, Sparkles } from "lucide-react"
 
 export function AuthOverlay() {
-  const { login, register, isAuthenticated } = useChatContext()
+  const { login, register, isAuthenticated, company } = useChatContext()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -24,10 +24,8 @@ export function AuthOverlay() {
     setError("")
     setIsLoading(true)
 
-    const success = await login(loginData.username, loginData.password)
-    if (!success) {
-      setError("Invalid credentials. Please try again.")
-    }
+    const err = await login(loginData.username, loginData.password)
+    if (err) setError(err)
     setIsLoading(false)
   }
 
@@ -40,16 +38,14 @@ export function AuthOverlay() {
       return
     }
 
-    if (registerData.password.length < 4) {
-      setError("Password must be at least 4 characters.")
+    if (registerData.password.length < 8) {
+      setError("Password must be at least 8 characters.")
       return
     }
 
     setIsLoading(true)
-    const success = await register(registerData.username, registerData.password)
-    if (!success) {
-      setError("Registration failed. Please try again.")
-    }
+    const err = await register(registerData.username, registerData.password)
+    if (err) setError(err)
     setIsLoading(false)
   }
 
@@ -60,7 +56,7 @@ export function AuthOverlay() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-secondary">
             <MessageSquare className="h-8 w-8 text-foreground" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">{"Carina's Company"}</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{company ?? "Alcuin"}</h1>
           <p className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Sparkles className="h-4 w-4" />
             AI-Powered Chat with RAG Support
