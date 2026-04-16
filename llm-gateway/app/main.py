@@ -92,6 +92,9 @@ app = FastAPI(
 
 _rpm = int(os.environ.get("RATE_LIMIT_RPM", 60))
 
+app.add_middleware(ObservabilityMiddleware)
+app.add_middleware(AuthMiddleware)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=_rpm)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(","),
@@ -99,9 +102,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(ObservabilityMiddleware)
-app.add_middleware(AuthMiddleware)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=_rpm)
 app.include_router(router, prefix="/api/v1")
 app.include_router(rag_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
