@@ -29,13 +29,7 @@ export function ChatHeader() {
         <div className="flex items-center gap-2">
           {company ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://logo.clearbit.com/${company.toLowerCase()}.com`}
-                alt={company}
-                className="h-5 w-5 rounded object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
-              />
+              <MessageSquare className="h-5 w-5 text-foreground" />
               <h1 className="text-base font-semibold text-foreground">{company} AI Assistant</h1>
             </>
           ) : (
