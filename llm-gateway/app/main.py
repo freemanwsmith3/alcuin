@@ -15,6 +15,9 @@ from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
+from app.keyvault import load_secrets
+load_secrets()
+
 import redis.asyncio as aioredis
 
 from app.api.routes import router
