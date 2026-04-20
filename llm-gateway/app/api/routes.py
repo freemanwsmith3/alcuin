@@ -150,14 +150,25 @@ def _inject_graph_context(messages: list[Message], user_id: str) -> list[Message
     from app.graph import generator, querier
     schema = generator.load(user_id)
     if schema is None:
+        logger.warning("graph_inject_no_schema", extra={"user_id": user_id})
         return messages
+
     user_query = next((m.content for m in reversed(messages) if m.role == "user"), "")
     if not user_query:
         return messages
+
     answer = querier.query(user_query, user_id, schema)
-    if not answer:
-        return messages
-    return [Message(role="system", content=_GRAPH_SYSTEM_PREFIX.format(context=answer))] + messages
+    logger.info("graph_inject", extra={"user_id": user_id, "has_answer": bool(answer)})
+
+    table_names = [t["name"] for t in schema.get("tables", [])]
+    schema_summary = f"Tables: {', '.join(table_names)}" if table_names else "no tables"
+
+    if answer:
+        context = answer
+    else:
+        context = f"Query returned no results. The graph contains: {schema_summary}."
+
+    return [Message(role="system", content=_GRAPH_SYSTEM_PREFIX.format(context=context))] + messages
 
 
 @router.post("/chat/stream")

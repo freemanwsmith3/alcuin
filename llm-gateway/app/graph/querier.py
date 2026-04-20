@@ -1,11 +1,14 @@
 """Translate natural language questions to Cypher and query KuzuDB."""
 from __future__ import annotations
 
+import logging
+
 from anthropic import Anthropic
 
 from app.graph.builder import get_connection
 
 _client = Anthropic()
+logger = logging.getLogger(__name__)
 
 
 def query(question: str, user_id: str, schema: dict) -> str | None:
@@ -18,6 +21,7 @@ def query(question: str, user_id: str, schema: dict) -> str | None:
 
     cypher = _to_cypher(question, schema_desc)
     if not cypher:
+        logger.warning("graph_query_no_cypher", extra={"question": question[:100]})
         return None
 
     try:
@@ -29,6 +33,7 @@ def query(question: str, user_id: str, schema: dict) -> str | None:
             return "No results found in the graph for that question."
         return _rows_to_answer(question, rows)
     except Exception as e:
+        logger.warning("graph_query_execute_failed", extra={"cypher": cypher, "error": str(e)})
         return None
 
 
