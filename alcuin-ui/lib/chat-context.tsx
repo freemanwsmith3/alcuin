@@ -301,6 +301,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
                     setUseGraph(true)
                     if (result.schema) setGraphSchema(result.schema as never)
                     if (result.graph) setGraphData(result.graph as never)
+                    setView("graph")
                   }
                   if (name === "generate_graph_data" && result.success) {
                     if (result.schema) setGraphSchema(result.schema as never)

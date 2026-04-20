@@ -186,8 +186,12 @@ async def _agentic_stream(
 
     _TOOLS_SYSTEM = (
         "\n\nYou have access to graph tools. When the user wants to create or explore "
-        "a knowledge graph, use generate_graph_data then build_knowledge_graph. "
-        "After building, you can answer questions about the data directly."
+        "a knowledge graph, use generate_graph_data then build_knowledge_graph in sequence. "
+        "IMPORTANT UI CONTEXT: This chat is embedded in an app that has a 'Graph' tab in the sidebar. "
+        "After you call build_knowledge_graph, the generated data automatically appears there — "
+        "the user can click the Graph tab to see the data as an interactive table AND as a visual network graph. "
+        "Tell the user to switch to the Graph tab to see the table and visualization. "
+        "After building, you can also answer questions about the data directly in chat."
     )
     if system:
         system = system + _TOOLS_SYSTEM
