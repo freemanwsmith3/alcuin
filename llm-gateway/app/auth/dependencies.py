@@ -27,7 +27,6 @@ async def get_current_user(
     user_id = payload.get("sub")
     username = payload.get("username")
 
-    # Verify user still exists and is active
     async with db.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT id FROM users WHERE id = $1 AND is_active = true", user_id
@@ -36,3 +35,14 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return CurrentUser(id=user_id, username=username)
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> CurrentUser | None:
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(credentials)
+    except HTTPException:
+        return None

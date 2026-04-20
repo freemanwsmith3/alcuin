@@ -22,6 +22,7 @@ import redis.asyncio as aioredis
 
 from app.api.routes import router
 from app.api.rag_routes import router as rag_router
+from app.api.graph_routes import router as graph_router
 from app.auth.routes import router as auth_router
 from app.middleware.auth import AuthMiddleware
 from app.middleware.observability import ObservabilityMiddleware
@@ -107,6 +108,7 @@ app.add_middleware(
 )
 app.include_router(router, prefix="/api/v1")
 app.include_router(rag_router, prefix="/api/v1")
+app.include_router(graph_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 
 

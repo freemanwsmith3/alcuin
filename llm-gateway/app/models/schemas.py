@@ -34,6 +34,7 @@ class ChatRequest(BaseModel):
         default=None,
         description="If provided, retrieve relevant chunks from these documents and inject as context.",
     )
+    use_graph: bool = Field(default=False, description="If true, query the user's graph and inject results as context.")
 
 
 class ChatResponse(BaseModel):

@@ -15,6 +15,7 @@ from app.providers.base import LLMProvider
 from app.providers.openai import OpenAIProvider
 from app.providers.resilient import ResilientProvider
 from app.rag.retriever import retrieve
+from app.auth.dependencies import CurrentUser, get_optional_user
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,16 @@ provided below. If the answer is not in the context, say so clearly.
 --- CONTEXT ---
 {context}
 --- END CONTEXT ---
+
+"""
+
+_GRAPH_SYSTEM_PREFIX = """\
+You are a helpful assistant. The following is relevant information retrieved \
+from a knowledge graph. Use it to answer the user's question.
+
+--- GRAPH CONTEXT ---
+{context}
+--- END GRAPH CONTEXT ---
 
 """
 
@@ -131,10 +142,25 @@ async def chat(
         raise HTTPException(status_code=502, detail=str(e))
 
 
+def _inject_graph_context(messages: list[Message], user_id: str) -> list[Message]:
+    from app.graph import generator, querier
+    schema = generator.load(user_id)
+    if schema is None:
+        return messages
+    user_query = next((m.content for m in reversed(messages) if m.role == "user"), "")
+    if not user_query:
+        return messages
+    answer = querier.query(user_query, user_id, schema)
+    if not answer:
+        return messages
+    return [Message(role="system", content=_GRAPH_SYSTEM_PREFIX.format(context=answer))] + messages
+
+
 @router.post("/chat/stream")
 async def chat_stream(
     request: ChatRequest,
     store: ConversationStore = Depends(get_store),
+    current_user: CurrentUser | None = Depends(get_optional_user),
 ) -> StreamingResponse:
     """Stream response chunks as Server-Sent Events."""
     session_id = request.session_id or new_session_id()
@@ -144,6 +170,9 @@ async def chat_stream(
 
     if request.document_ids:
         messages = await _inject_rag_context(messages, request.document_ids)
+
+    if request.use_graph and current_user:
+        messages = _inject_graph_context(messages, current_user.id)
 
     async def generate() -> AsyncIterator[str]:
         collected = []

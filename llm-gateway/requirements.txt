@@ -3,6 +3,11 @@ azure-storage-blob==12.25.1
 azure-keyvault-secrets==4.9.0
 azure-identity==1.21.0
 
+# Graph
+kuzu==0.8.2
+azure-keyvault-secrets==4.9.0
+azure-identity==1.21.0
+
 # Auth
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
