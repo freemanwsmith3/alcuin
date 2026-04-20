@@ -315,10 +315,13 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
           }
         }
         // After stream ends, fetch fresh graph data if a build happened
+        console.log("[graph] stream ended, sawGraphBuild=", sawGraphBuild)
         if (sawGraphBuild) {
           const gResp = await apiFetch("/api/v1/graph/")
+          console.log("[graph] GET /api/v1/graph/ status=", gResp.status)
           if (gResp.ok) {
             const gData = await gResp.json()
+            console.log("[graph] response schema=", !!gData.schema, "graph=", !!gData.graph)
             if (gData.schema) setGraphSchema(gData.schema)
             if (gData.graph) setGraphData(gData.graph)
             setUseGraph(true)
