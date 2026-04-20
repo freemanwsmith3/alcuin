@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 
 def query(question: str, user_id: str, schema: dict) -> str | None:
     """Return a text answer by translating question → Cypher → KuzuDB result."""
-    conn = get_connection(user_id)
-    if conn is None:
+    result = get_connection(user_id)
+    if result is None:
         return None
+    conn, _db = result  # keep _db alive so conn stays valid
 
     schema_desc = _describe_schema(schema)
 
@@ -48,14 +49,19 @@ output ONLY a valid Cypher query with no explanation or markdown.
 Schema:
 {schema_desc}
 
-KuzuDB Cypher notes:
-- Use MATCH, RETURN, WHERE, ORDER BY, LIMIT
+STRICT rules:
+- ALWAYS include a node label in every MATCH clause: MATCH (n:NodeLabel) not MATCH (n)
+- Use only node/relationship names exactly as listed in the schema above
 - Property access: n.property_name
-- No APOC or Neo4j-specific functions
+- No APOC, no Neo4j-specific functions
+- For general questions like "show me everything", pick the most relevant node table and return all rows
+- LIMIT results to 20 rows maximum
 """,
         messages=[{"role": "user", "content": question}],
     )
-    cypher = response.content[0].text.strip().strip("```").strip()
+    cypher = response.content[0].text.strip()
+    if cypher.startswith("```"):
+        cypher = cypher.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     return cypher if cypher.upper().startswith("MATCH") else None
 
 

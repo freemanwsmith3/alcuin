@@ -54,12 +54,12 @@ def load_graph(user_id: str, schema: dict) -> dict | None:
     return _export_graph(conn, schema)
 
 
-def get_connection(user_id: str) -> kuzu.Connection | None:
+def get_connection(user_id: str) -> tuple[kuzu.Connection, kuzu.Database] | None:
     kuzu_path = _kuzu_path(user_id)
     if not kuzu_path.exists():
         return None
     db = kuzu.Database(str(kuzu_path))
-    return kuzu.Connection(db)
+    return kuzu.Connection(db), db
 
 
 def _export_graph(conn: kuzu.Connection, schema: dict) -> dict:
