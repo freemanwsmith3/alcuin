@@ -286,7 +286,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
               if (raw === "[DONE]") { setActiveTools([]); break }
               try {
                 const parsed = JSON.parse(raw)
-                if (parsed.tool_use || parsed.tool_result || parsed.error) console.log("[sse]", raw.slice(0, 200))
+
                 if (parsed.session_id && !sessionId) setSessionId(parsed.session_id)
                 if (parsed.text) {
                   fullText += parsed.text
@@ -316,13 +316,10 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
           }
         }
         // After stream ends, fetch fresh graph data if a build happened
-        console.log("[graph] stream ended, sawGraphBuild=", sawGraphBuild)
         if (sawGraphBuild) {
           const gResp = await apiFetch("/api/v1/graph/")
-          console.log("[graph] GET /api/v1/graph/ status=", gResp.status)
           if (gResp.ok) {
             const gData = await gResp.json()
-            console.log("[graph] response schema=", !!gData.schema, "graph=", !!gData.graph)
             if (gData.schema) setGraphSchema(gData.schema)
             if (gData.graph) setGraphData(gData.graph)
             setUseGraph(true)
