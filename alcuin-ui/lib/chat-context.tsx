@@ -287,6 +287,25 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
                     prev.map((m) => m.id === assistantId ? { ...m, content: fullText } : m)
                   )
                 }
+                if (parsed.tool_result) {
+                  const { name, result } = parsed.tool_result
+                  setMessages((prev) => [...prev, {
+                    id: generateId(),
+                    role: "tool" as const,
+                    content: "",
+                    timestamp: new Date(),
+                    toolCall: { name, result },
+                  }])
+                  // Auto-enable graph in chat after a successful build
+                  if (name === "build_knowledge_graph" && result.success) {
+                    setUseGraph(true)
+                    if (result.schema) setGraphSchema(result.schema as never)
+                    if (result.graph) setGraphData(result.graph as never)
+                  }
+                  if (name === "generate_graph_data" && result.success) {
+                    if (result.schema) setGraphSchema(result.schema as never)
+                  }
+                }
               } catch { /* skip malformed */ }
             }
           }

@@ -14,11 +14,17 @@ export interface Document {
   selected: boolean
 }
 
+export interface ToolCall {
+  name: string
+  result: Record<string, unknown>
+}
+
 export interface Message {
   id: string
-  role: "user" | "assistant"
+  role: "user" | "assistant" | "tool"
   content: string
   timestamp: Date
+  toolCall?: ToolCall
 }
 
 export interface ChatSettings {

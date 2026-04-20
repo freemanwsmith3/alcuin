@@ -3,9 +3,74 @@
 import { useEffect, useRef } from "react"
 import { useChatContext } from "@/lib/chat-context"
 import { cn } from "@/lib/utils"
-import { User, Bot } from "lucide-react"
+import { User, Bot, Sparkles, GitBranch, CheckCircle2, XCircle } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import type { ToolCall } from "@/lib/types"
+
+function ToolCard({ toolCall }: { toolCall: ToolCall }) {
+  const { name, result } = toolCall
+  const ok = result.success as boolean
+
+  if (name === "generate_graph_data") {
+    return (
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/20">
+          <Sparkles className="h-4 w-4 text-purple-400" />
+        </div>
+        <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-4 py-3 text-sm">
+          {ok ? (
+            <>
+              <div className="flex items-center gap-2 font-medium text-purple-300">
+                <CheckCircle2 className="h-4 w-4" />
+                Data Generated
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                {result.tables as number} tables · {result.rows as number} rows
+                {result.table_names ? ` · ${(result.table_names as string[]).join(", ")}` : ""}
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-4 w-4" />
+              {result.error as string}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (name === "build_knowledge_graph") {
+    return (
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/20">
+          <GitBranch className="h-4 w-4 text-purple-400" />
+        </div>
+        <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-4 py-3 text-sm">
+          {ok ? (
+            <>
+              <div className="flex items-center gap-2 font-medium text-purple-300">
+                <CheckCircle2 className="h-4 w-4" />
+                Knowledge Graph Built
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                {result.nodes as number} nodes · {result.edges as number} edges · Graph active in chat
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-4 w-4" />
+              {result.error as string}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
 
 function TypingIndicator() {
   return (
@@ -50,7 +115,11 @@ export function MessageList() {
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        {messages.map((message) => (
+        {messages.map((message) => message.role === "tool" ? (
+          <div key={message.id}>
+            {message.toolCall && <ToolCard toolCall={message.toolCall} />}
+          </div>
+        ) : (
           <div
             key={message.id}
             className={cn("flex items-start gap-3", message.role === "user" && "flex-row-reverse")}

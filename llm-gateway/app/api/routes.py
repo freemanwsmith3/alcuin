@@ -171,6 +171,91 @@ def _inject_graph_context(messages: list[Message], user_id: str) -> list[Message
     return [Message(role="system", content=_GRAPH_SYSTEM_PREFIX.format(context=context))] + messages
 
 
+async def _agentic_stream(
+    messages: list[Message],
+    request: "ChatRequest",
+    session_id: str,
+    store: "ConversationStore",
+    user_id: str,
+) -> AsyncIterator[str]:
+    """Agentic streaming loop: handles tool calls inline and yields SSE events."""
+    from app.graph import tools as graph_tools
+
+    provider: AnthropicProvider = get_anthropic()  # type: ignore[assignment]
+    system, api_messages = provider._translate_messages(messages)
+
+    _TOOLS_SYSTEM = (
+        "\n\nYou have access to graph tools. When the user wants to create or explore "
+        "a knowledge graph, use generate_graph_data then build_knowledge_graph. "
+        "After building, you can answer questions about the data directly."
+    )
+    if system:
+        system = system + _TOOLS_SYSTEM
+    else:
+        system = _TOOLS_SYSTEM.strip()
+
+    text_parts: list[str] = []
+
+    while True:
+        kwargs: dict = {
+            "model": request.config.model,
+            "max_tokens": request.config.max_tokens or 2048,
+            "messages": api_messages,
+            "tools": graph_tools.TOOLS,
+        }
+        if system:
+            kwargs["system"] = system
+        if request.config.temperature is not None:
+            kwargs["temperature"] = request.config.temperature
+
+        async with provider._client.messages.stream(**kwargs) as stream:
+            turn_text: list[str] = []
+            async for chunk in stream.text_stream:
+                turn_text.append(chunk)
+                yield f"data: {json.dumps({'text': chunk, 'session_id': session_id})}\n\n"
+            final = await stream.get_final_message()
+
+        if turn_text:
+            text_parts.append("".join(turn_text))
+
+        if final.stop_reason != "tool_use":
+            full_response = "".join(text_parts)
+            await store.append(session_id, request.messages)
+            await store.append(session_id, [Message(role="assistant", content=full_response)])
+            break
+
+        # Serialize assistant turn (text + tool_use blocks)
+        assistant_content = []
+        for block in final.content:
+            if block.type == "text":
+                assistant_content.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                assistant_content.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
+                })
+        api_messages.append({"role": "assistant", "content": assistant_content})
+
+        # Execute each tool and collect results
+        tool_results = []
+        for block in final.content:
+            if block.type != "tool_use":
+                continue
+            yield f"data: {json.dumps({'tool_use': {'name': block.name, 'input': block.input}})}\n\n"
+            result = graph_tools.execute(block.name, block.input, user_id)
+            logger.info("tool_executed", extra={"tool": block.name, "success": result.get("success")})
+            yield f"data: {json.dumps({'tool_result': {'name': block.name, 'result': result}})}\n\n"
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": json.dumps({k: v for k, v in result.items() if k not in ("schema", "graph")}),
+            })
+
+        api_messages.append({"role": "user", "content": tool_results})
+
+
 @router.post("/chat/stream")
 async def chat_stream(
     request: ChatRequest,
@@ -179,7 +264,6 @@ async def chat_stream(
 ) -> StreamingResponse:
     """Stream response chunks as Server-Sent Events."""
     session_id = request.session_id or new_session_id()
-    provider = get_provider_for_model(request.config.model)
     history = await store.get(session_id)
     messages = history + request.messages
 
@@ -188,6 +272,24 @@ async def chat_stream(
 
     if request.use_graph and current_user:
         messages = _inject_graph_context(messages, current_user.id)
+
+    # Use agentic loop for Claude models when authenticated
+    use_tools = current_user is not None and request.config.model.startswith("claude-")
+
+    if use_tools:
+        async def agentic_generate() -> AsyncIterator[str]:
+            try:
+                async for event in _agentic_stream(messages, request, session_id, store, current_user.id):
+                    yield event
+            except Exception as e:
+                logger.error("agentic_stream_error", extra={"error": str(e)})
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            finally:
+                yield "data: [DONE]\n\n"
+
+        return StreamingResponse(agentic_generate(), media_type="text/event-stream")
+
+    provider = get_provider_for_model(request.config.model)
 
     async def generate() -> AsyncIterator[str]:
         collected = []
