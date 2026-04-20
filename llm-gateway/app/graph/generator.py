@@ -34,7 +34,7 @@ You are a data generator. Given a description, produce a JSON object with:
 }
 
 Rules:
-- Generate realistic data (20-30 rows per table)
+- Generate realistic data (10-15 rows per table max)
 - Every table must have an "id" column as first column with unique integer values
 - Relationships must reference valid id values from their tables
 - Output ONLY valid JSON, no markdown, no explanation
@@ -45,7 +45,7 @@ def generate(prompt: str, user_id: str) -> dict:
     """Ask the LLM to generate fake data, store in SQLite, return parsed schema."""
     response = _client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=4096,
+        max_tokens=8096,
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
     )
