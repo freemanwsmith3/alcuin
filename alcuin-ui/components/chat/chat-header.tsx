@@ -5,10 +5,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ChatSidebar } from "./chat-sidebar"
-import { Menu, MessageSquare, Database, Zap, Network } from "lucide-react"
+import { Menu, MessageSquare, Database, Zap, Network, Wrench } from "lucide-react"
+
+const TOOL_LABELS: Record<string, string> = {
+  generate_graph_data: "Generating Data",
+  build_knowledge_graph: "Building Graph",
+}
 
 export function ChatHeader() {
-  const { company, ragActive, isTyping, settings, useGraph } = useChatContext()
+  const { company, ragActive, isTyping, settings, useGraph, activeTools } = useChatContext()
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
@@ -48,6 +53,12 @@ export function ChatHeader() {
             RAG Active
           </Badge>
         )}
+        {activeTools.map((tool) => (
+          <Badge key={tool} variant="secondary" className="gap-1 bg-purple-500/20 text-purple-400">
+            <Wrench className="h-3 w-3 animate-pulse" />
+            {TOOL_LABELS[tool] ?? tool}
+          </Badge>
+        ))}
         {useGraph && (
           <Badge variant="secondary" className="gap-1 bg-purple-500/20 text-purple-400">
             <Network className="h-3 w-3" />

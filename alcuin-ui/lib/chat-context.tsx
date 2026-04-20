@@ -24,6 +24,8 @@ interface ChatContextType {
   ragActive: boolean
   settings: ChatSettings
   updateSettings: (settings: Partial<ChatSettings>) => void
+  // Active tool calls
+  activeTools: string[]
   // Graph
   view: "chat" | "graph"
   setView: (v: "chat" | "graph") => void
@@ -121,6 +123,8 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null)
   const [graphData, setGraphData] = useState<GraphData | null>(null)
   const [graphLoading, setGraphLoading] = useState(false)
+  const [activeTools, setActiveTools] = useState<string[]>([])
+
   const [useGraph, setUseGraphState] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("use_graph") === "true" : false
   )
@@ -277,7 +281,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
             for (const line of block.split("\n")) {
               if (!line.startsWith("data: ")) continue
               const raw = line.slice(6).trim()
-              if (raw === "[DONE]") break
+              if (raw === "[DONE]") { setActiveTools([]); break }
               try {
                 const parsed = JSON.parse(raw)
                 if (parsed.session_id && !sessionId) setSessionId(parsed.session_id)
@@ -287,8 +291,12 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
                     prev.map((m) => m.id === assistantId ? { ...m, content: fullText } : m)
                   )
                 }
+                if (parsed.tool_use) {
+                  setActiveTools((prev) => [...prev, parsed.tool_use.name])
+                }
                 if (parsed.tool_result) {
                   const { name, result } = parsed.tool_result
+                  setActiveTools((prev) => prev.filter((t) => t !== name))
                   setMessages((prev) => [...prev, {
                     id: generateId(),
                     role: "tool" as const,
@@ -430,6 +438,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
       messages, isTyping, sessionId, newSession, sendMessage,
       documents, uploadDocument, toggleDocument, ragActive,
       settings, updateSettings,
+      activeTools,
       view, setView, graphSchema, graphData, graphLoading,
       useGraph, setUseGraph, generateGraphData, buildGraph,
     }}>
