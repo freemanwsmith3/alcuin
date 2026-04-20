@@ -31,3 +31,41 @@ export interface ChatSettings {
 export interface User {
   username: string
 }
+
+export interface GraphTable {
+  name: string
+  columns: string[]
+  rows: (string | number)[][]
+}
+
+export interface GraphRelationship {
+  name: string
+  from_table: string
+  from_col: string
+  to_table: string
+  to_col: string
+  pairs: [string | number, string | number][]
+}
+
+export interface GraphSchema {
+  tables: GraphTable[]
+  relationships: GraphRelationship[]
+}
+
+export interface GraphNode {
+  id: string
+  label: string
+  group: string
+  properties: Record<string, string>
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  label: string
+}
+
+export interface GraphData {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}

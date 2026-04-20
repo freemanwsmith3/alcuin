@@ -1,28 +1,34 @@
 "use client"
 
-import { ChatProvider } from "@/lib/chat-context"
+import { ChatProvider, useChatContext } from "@/lib/chat-context"
 import { AuthOverlay } from "./auth-overlay"
 import { ChatSidebar } from "./chat-sidebar"
 import { ChatHeader } from "./chat-header"
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
+import { GraphPanel } from "@/components/graph/graph-panel"
 
 function ChatLayout() {
+  const { view } = useChatContext()
+
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar - Hidden on mobile */}
       <aside className="hidden w-80 shrink-0 border-r border-border lg:block">
         <ChatSidebar />
       </aside>
 
-      {/* Main content */}
       <main className="flex flex-1 flex-col overflow-hidden">
         <ChatHeader />
-        <MessageList />
-        <ChatInput />
+        {view === "graph" ? (
+          <GraphPanel />
+        ) : (
+          <>
+            <MessageList />
+            <ChatInput />
+          </>
+        )}
       </main>
 
-      {/* Auth overlay */}
       <AuthOverlay />
     </div>
   )

@@ -23,6 +23,7 @@ import {
   FileText,
   LogOut,
   MessageSquare,
+  Network,
   Plus,
   Upload,
   Loader2,
@@ -84,6 +85,8 @@ export function ChatSidebar() {
     settings,
     updateSettings,
     company,
+    view,
+    setView,
   } = useChatContext()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -113,6 +116,22 @@ export function ChatSidebar() {
           <h1 className="text-sm font-semibold text-sidebar-foreground truncate">{company ?? "Alcuin"}</h1>
           <p className="text-xs text-muted-foreground">AI Chat Assistant</p>
         </div>
+      </div>
+
+      {/* View toggle */}
+      <div className="flex border-b border-sidebar-border">
+        <button
+          onClick={() => setView("chat")}
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${view === "chat" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" /> Chat
+        </button>
+        <button
+          onClick={() => setView("graph")}
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${view === "graph" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Network className="h-3.5 w-3.5" /> Graph
+        </button>
       </div>
 
       <ScrollArea className="flex-1">

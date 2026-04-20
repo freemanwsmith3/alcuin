@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
-import type { Message, Document, ChatSettings, User } from "./types"
+import type { Message, Document, ChatSettings, User, GraphSchema, GraphData } from "./types"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 const GATEWAY_API_KEY = process.env.NEXT_PUBLIC_GATEWAY_API_KEY ?? ""
@@ -24,6 +24,16 @@ interface ChatContextType {
   ragActive: boolean
   settings: ChatSettings
   updateSettings: (settings: Partial<ChatSettings>) => void
+  // Graph
+  view: "chat" | "graph"
+  setView: (v: "chat" | "graph") => void
+  graphSchema: GraphSchema | null
+  graphData: GraphData | null
+  graphLoading: boolean
+  useGraph: boolean
+  setUseGraph: (v: boolean) => void
+  generateGraphData: (prompt: string) => Promise<string | null>
+  buildGraph: () => Promise<string | null>
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -106,6 +116,12 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({})
+
+  const [view, setView] = useState<"chat" | "graph">("chat")
+  const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null)
+  const [graphData, setGraphData] = useState<GraphData | null>(null)
+  const [graphLoading, setGraphLoading] = useState(false)
+  const [useGraph, setUseGraph] = useState(false)
 
   const [settings, setSettings] = useState<ChatSettings>({
     model: "claude-sonnet-4-5",
@@ -220,6 +236,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
       session_id: sessionId ?? undefined,
     }
     if (selectedDocIds.length) body.document_ids = selectedDocIds
+    if (useGraph) body.use_graph = true
 
     try {
       if (settings.streamResponse) {
@@ -288,7 +305,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
     } catch {
       setIsTyping(false)
     }
-  }, [documents, settings, sessionId])
+  }, [documents, settings, sessionId, useGraph])
 
   // ── Documents ─────────────────────────────────────────────────────
   const pollStatus = useCallback((docId: string) => {
@@ -336,6 +353,50 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
     setSettings((prev) => ({ ...prev, ...newSettings }))
   }, [])
 
+  // ── Graph ─────────────────────────────────────────────────────────
+  const generateGraphData = useCallback(async (prompt: string): Promise<string | null> => {
+    setGraphLoading(true)
+    try {
+      const resp = await apiFetch("/api/v1/graph/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        return parseApiError(err, resp.status)
+      }
+      const data = await resp.json()
+      setGraphSchema(data.schema)
+      setGraphData(null)
+      return null
+    } catch {
+      return "Could not reach the server."
+    } finally {
+      setGraphLoading(false)
+    }
+  }, [])
+
+  const buildGraph = useCallback(async (): Promise<string | null> => {
+    setGraphLoading(true)
+    try {
+      const resp = await apiFetch("/api/v1/graph/build", { method: "POST" })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        return parseApiError(err, resp.status)
+      }
+      const data = await resp.json()
+      setGraphData(data.graph)
+      setGraphSchema(data.schema)
+      setUseGraph(true)
+      return null
+    } catch {
+      return "Could not reach the server."
+    } finally {
+      setGraphLoading(false)
+    }
+  }, [])
+
   return (
     <ChatContext.Provider value={{
       company,
@@ -343,6 +404,8 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
       messages, isTyping, sessionId, newSession, sendMessage,
       documents, uploadDocument, toggleDocument, ragActive,
       settings, updateSettings,
+      view, setView, graphSchema, graphData, graphLoading,
+      useGraph, setUseGraph, generateGraphData, buildGraph,
     }}>
       {children}
     </ChatContext.Provider>
