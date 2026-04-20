@@ -111,6 +111,7 @@ async def chat(
     request: ChatRequest,
     store: ConversationStore = Depends(get_store),
     usage: UsageStore = Depends(get_usage_store),
+    current_user: CurrentUser | None = Depends(get_optional_user),
 ) -> ChatResponse:
     """Return a complete response in one shot."""
     session_id = request.session_id or new_session_id()
@@ -122,6 +123,9 @@ async def chat(
 
         if request.document_ids:
             messages = await _inject_rag_context(messages, request.document_ids)
+
+        if request.use_graph and current_user:
+            messages = _inject_graph_context(messages, current_user.id)
 
         response = await provider.complete(messages, request.config)
 
