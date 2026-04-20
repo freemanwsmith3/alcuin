@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Spinner } from "@/components/ui/spinner"
 import { DataTable } from "./data-table"
 import { ForceGraph } from "./force-graph"
-import { Network, TableIcon, Sparkles, GitBranch } from "lucide-react"
+import { Sparkles, GitBranch } from "lucide-react"
 
 export function GraphPanel() {
   const { graphSchema, graphData, graphLoading, useGraph, setUseGraph, generateGraphData, buildGraph } = useChatContext()
@@ -61,7 +61,9 @@ export function GraphPanel() {
             <h2 className="text-sm font-semibold">Generated Data</h2>
             <span className="text-xs text-muted-foreground">({graphSchema.tables.length} tables, {graphSchema.tables.reduce((s, t) => s + t.rows.length, 0)} rows)</span>
           </div>
-          <DataTable schema={graphSchema} />
+          <div className="pb-2">
+            <DataTable schema={graphSchema} />
+          </div>
           <Button onClick={handleBuild} disabled={graphLoading} variant="outline" className="w-fit gap-2">
             {graphLoading && graphSchema && !graphData ? <Spinner className="h-4 w-4" /> : <GitBranch className="h-4 w-4" />}
             Build Knowledge Graph
