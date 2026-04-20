@@ -185,13 +185,13 @@ async def _agentic_stream(
     system, api_messages = provider._translate_messages(messages)
 
     _TOOLS_SYSTEM = (
-        "\n\nYou have access to graph tools. When the user wants to create or explore "
-        "a knowledge graph, use generate_graph_data then build_knowledge_graph in sequence. "
-        "IMPORTANT UI CONTEXT: This chat is embedded in an app that has a 'Graph' tab in the sidebar. "
-        "After you call build_knowledge_graph, the generated data automatically appears there — "
-        "the user can click the Graph tab to see the data as an interactive table AND as a visual network graph. "
-        "Tell the user to switch to the Graph tab to see the table and visualization. "
-        "After building, you can also answer questions about the data directly in chat."
+        "\n\nYou have two tools: generate_graph_data and build_knowledge_graph."
+        "\n\nRULE: When a user asks to create, build, or generate a knowledge graph or any dataset, "
+        "you MUST call generate_graph_data followed immediately by build_knowledge_graph. "
+        "NEVER write out the data as text, JSON, or diagrams — always use the tools instead."
+        "\n\nUI CONTEXT: After build_knowledge_graph succeeds, the data automatically appears in the "
+        "app's Graph tab (interactive table + visual network graph). Tell the user to check it there."
+        "\n\nAfter building, answer questions about the data directly in chat."
     )
     if system:
         system = system + _TOOLS_SYSTEM
