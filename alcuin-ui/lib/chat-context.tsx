@@ -295,6 +295,9 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
                 }
                 if (parsed.tool_use) {
                   setActiveTools((prev) => [...prev, parsed.tool_use.name])
+                  if (parsed.tool_use.name === "build_knowledge_graph") {
+                    sawGraphBuild = true
+                  }
                 }
                 if (parsed.tool_result) {
                   const { name, result } = parsed.tool_result
@@ -306,9 +309,6 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
                     timestamp: new Date(),
                     toolCall: { name, result },
                   }])
-                  if (name === "build_knowledge_graph" && result.success) {
-                    sawGraphBuild = true
-                  }
                 }
               } catch { /* skip malformed */ }
             }

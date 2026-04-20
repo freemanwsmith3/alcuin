@@ -261,7 +261,8 @@ async def _agentic_stream(
             yield f"data: {json.dumps({'tool_use': {'name': block.name, 'input': block.input}})}\n\n"
             result = graph_tools.execute(block.name, block.input, user_id)
             logger.info("tool_executed", extra={"tool": block.name, "success": result.get("success")})
-            yield f"data: {json.dumps({'tool_result': {'name': block.name, 'result': result}})}\n\n"
+            slim_result = {k: v for k, v in result.items() if k not in ("schema", "graph")}
+            yield f"data: {json.dumps({'tool_result': {'name': block.name, 'result': slim_result}})}\n\n"
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": block.id,
