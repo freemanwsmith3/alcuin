@@ -269,6 +269,8 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
           id: assistantId, role: "assistant", content: "", timestamp: new Date(),
         }])
 
+        let sawGraphBuild = false
+
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
@@ -304,19 +306,23 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
                     timestamp: new Date(),
                     toolCall: { name, result },
                   }])
-                  // Auto-enable graph in chat after a successful build
                   if (name === "build_knowledge_graph" && result.success) {
-                    setUseGraph(true)
-                    if (result.schema) setGraphSchema(result.schema as never)
-                    if (result.graph) setGraphData(result.graph as never)
-                    setView("graph")
-                  }
-                  if (name === "generate_graph_data" && result.success) {
-                    if (result.schema) setGraphSchema(result.schema as never)
+                    sawGraphBuild = true
                   }
                 }
               } catch { /* skip malformed */ }
             }
+          }
+        }
+        // After stream ends, fetch fresh graph data if a build happened
+        if (sawGraphBuild) {
+          const gResp = await apiFetch("/api/v1/graph/")
+          if (gResp.ok) {
+            const gData = await gResp.json()
+            if (gData.schema) setGraphSchema(gData.schema)
+            if (gData.graph) setGraphData(gData.graph)
+            setUseGraph(true)
+            setView("graph")
           }
         }
       } else {
