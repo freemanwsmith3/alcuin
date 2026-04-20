@@ -26,11 +26,8 @@ def build(user_id: str, schema: dict) -> dict:
         )
         conn.execute(f"CREATE NODE TABLE {table['name']}({cols}, PRIMARY KEY(id))")
         for row in table["rows"]:
-            values = ", ".join(
-                str(row[i]) if table["columns"][i] == "id" else f'"{str(row[i]).replace(chr(34), chr(39))}"'
-                for i in range(len(table["columns"]))
-            )
-            conn.execute(f"MERGE (:{table['name']} {{{', '.join(f'{c}: {_val(c, v)}' for c, v in zip(table['columns'], row))}}}})")
+            props = ", ".join(f"{c}: {_val(c, v)}" for c, v in zip(table["columns"], row))
+            conn.execute(f"MERGE (:{table['name']} {{{props}}})")
 
     # Create relationship tables
     for rel in schema.get("relationships", []):
