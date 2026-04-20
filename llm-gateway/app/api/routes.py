@@ -201,11 +201,22 @@ async def _agentic_stream(
     text_parts: list[str] = []
 
     while True:
+        # Force tool use on the first turn if the user is asking for graph creation
+        _GRAPH_KEYWORDS = ("knowledge graph", "create a graph", "build a graph",
+                           "generate data", "make a graph", "graph of", "graph with")
+        last_user = next((m["content"] for m in reversed(api_messages) if m["role"] == "user"), "")
+        force_tools = (
+            len(api_messages) <= 2  # first or second turn
+            and isinstance(last_user, str)
+            and any(kw in last_user.lower() for kw in _GRAPH_KEYWORDS)
+        )
+
         kwargs: dict = {
             "model": request.config.model,
             "max_tokens": request.config.max_tokens or 2048,
             "messages": api_messages,
             "tools": graph_tools.TOOLS,
+            "tool_choice": {"type": "any"} if force_tools else {"type": "auto"},
         }
         if system:
             kwargs["system"] = system
@@ -279,6 +290,7 @@ async def chat_stream(
 
     # Use agentic loop for Claude models when authenticated
     use_tools = current_user is not None and request.config.model.startswith("claude-")
+    logger.info("chat_stream_path", extra={"use_tools": use_tools, "user": current_user.id if current_user else None})
 
     if use_tools:
         async def agentic_generate() -> AsyncIterator[str]:
