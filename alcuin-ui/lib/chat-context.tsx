@@ -286,6 +286,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
               if (raw === "[DONE]") { setActiveTools([]); break }
               try {
                 const parsed = JSON.parse(raw)
+                if (parsed.tool_use || parsed.tool_result || parsed.error) console.log("[sse]", raw.slice(0, 200))
                 if (parsed.session_id && !sessionId) setSessionId(parsed.session_id)
                 if (parsed.text) {
                   fullText += parsed.text
