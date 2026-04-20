@@ -42,7 +42,7 @@ Rules:
 
 
 def generate(prompt: str, user_id: str) -> dict:
-    """Ask the LLM to generate fake data, store in SQLite, return parsed schema."""
+    """Ask the LLM to generate fake data, store in SQLite + JSON, return parsed schema."""
     response = _client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=8096,
@@ -50,41 +50,36 @@ def generate(prompt: str, user_id: str) -> dict:
         messages=[{"role": "user", "content": prompt}],
     )
     raw = response.content[0].text.strip()
-    # Strip markdown code fences if present
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[-1]
         raw = raw.rsplit("```", 1)[0].strip()
     data = json.loads(raw)
 
-    db_path = _db_path(user_id)
-    _write_sqlite(data, db_path)
+    _write_sqlite(data, _db_path(user_id))
+    # Persist full schema (including relationships) so build step can use it
+    _schema_path(user_id).write_text(json.dumps(data))
 
     return data
 
 
 def load(user_id: str) -> dict | None:
-    """Load previously generated data from SQLite."""
-    db_path = _db_path(user_id)
-    if not db_path.exists():
+    """Load full schema (tables + relationships) from persisted JSON."""
+    path = _schema_path(user_id)
+    if not path.exists():
         return None
-
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    tables = []
-    for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_%'"):
-        table_name = row["name"]
-        cursor = conn.execute(f"SELECT * FROM \"{table_name}\"")
-        columns = [d[0] for d in cursor.description]
-        rows = [list(r) for r in cursor.fetchall()]
-        tables.append({"name": table_name, "columns": columns, "rows": rows})
-    conn.close()
-    return {"tables": tables}
+    return json.loads(path.read_text())
 
 
 def _db_path(user_id: str) -> Path:
     base = Path(os.environ.get("GRAPH_DATA_DIR", "/tmp/alcuin_graph"))
     base.mkdir(parents=True, exist_ok=True)
     return base / f"{user_id}.db"
+
+
+def _schema_path(user_id: str) -> Path:
+    base = Path(os.environ.get("GRAPH_DATA_DIR", "/tmp/alcuin_graph"))
+    base.mkdir(parents=True, exist_ok=True)
+    return base / f"{user_id}.json"
 
 
 def _write_sqlite(data: dict, path: Path) -> None:

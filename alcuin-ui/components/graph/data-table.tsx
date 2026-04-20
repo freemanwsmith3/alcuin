@@ -28,7 +28,7 @@ export function DataTable({ schema }: { schema: GraphSchema }) {
                 </tr>
               </thead>
               <tbody>
-                {table.rows.map((row, i) => (
+                {table.rows.slice(0, 10).map((row, i) => (
                   <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
                     {row.map((cell, j) => (
                       <td key={j} className="px-3 py-1.5 whitespace-nowrap text-foreground">
@@ -41,6 +41,11 @@ export function DataTable({ schema }: { schema: GraphSchema }) {
             </table>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
+          {table.rows.length > 10 && (
+            <p className="text-xs text-muted-foreground px-1">
+              Showing 10 of {table.rows.length} rows
+            </p>
+          )}
         </TabsContent>
       ))}
     </Tabs>
