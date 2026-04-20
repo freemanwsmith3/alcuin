@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ChatSidebar } from "./chat-sidebar"
-import { Menu, MessageSquare, Database, Zap } from "lucide-react"
+import { Menu, MessageSquare, Database, Zap, Network } from "lucide-react"
 
 export function ChatHeader() {
-  const { company, ragActive, isTyping, settings } = useChatContext()
+  const { company, ragActive, isTyping, settings, useGraph } = useChatContext()
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
@@ -46,6 +46,12 @@ export function ChatHeader() {
           <Badge variant="secondary" className="gap-1 bg-success/20 text-success">
             <Database className="h-3 w-3" />
             RAG Active
+          </Badge>
+        )}
+        {useGraph && (
+          <Badge variant="secondary" className="gap-1 bg-purple-500/20 text-purple-400">
+            <Network className="h-3 w-3" />
+            Graph Active
           </Badge>
         )}
         {settings.streamResponse && (
