@@ -50,6 +50,10 @@ def generate(prompt: str, user_id: str) -> dict:
         messages=[{"role": "user", "content": prompt}],
     )
     raw = response.content[0].text.strip()
+    # Strip markdown code fences if present
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+        raw = raw.rsplit("```", 1)[0].strip()
     data = json.loads(raw)
 
     db_path = _db_path(user_id)
