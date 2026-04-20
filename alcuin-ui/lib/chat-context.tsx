@@ -121,7 +121,13 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null)
   const [graphData, setGraphData] = useState<GraphData | null>(null)
   const [graphLoading, setGraphLoading] = useState(false)
-  const [useGraph, setUseGraph] = useState(false)
+  const [useGraph, setUseGraphState] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("use_graph") === "true" : false
+  )
+  const setUseGraph = useCallback((v: boolean) => {
+    setUseGraphState(v)
+    if (typeof window !== "undefined") localStorage.setItem("use_graph", String(v))
+  }, [])
 
   const [settings, setSettings] = useState<ChatSettings>({
     model: "claude-sonnet-4-5",
