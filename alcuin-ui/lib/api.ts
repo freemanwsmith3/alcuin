@@ -1,5 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-const GATEWAY_API_KEY = process.env.NEXT_PUBLIC_GATEWAY_API_KEY ?? ""
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+export const GATEWAY_API_KEY = process.env.NEXT_PUBLIC_GATEWAY_API_KEY ?? ""
 
 export const tokens = {
   get access()   { return typeof window !== "undefined" ? localStorage.getItem("access_token") : null },

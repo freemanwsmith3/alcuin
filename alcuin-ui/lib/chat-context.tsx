@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import type { Message, Document, ChatSettings, User, GraphSchema, GraphData, CameraReading } from "./types"
-import { tokens, apiFetch } from "./api"
+import { tokens, apiFetch, API_BASE, GATEWAY_API_KEY } from "./api"
 
 interface ChatContextType {
   company: string | null
