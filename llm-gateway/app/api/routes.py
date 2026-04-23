@@ -180,18 +180,30 @@ async def _agentic_stream(
 ) -> AsyncIterator[str]:
     """Agentic streaming loop: handles tool calls inline and yields SSE events."""
     from app.graph import tools as graph_tools
+    from app.camera import tools as camera_tools
 
     provider: AnthropicProvider = get_anthropic()  # type: ignore[assignment]
     system, api_messages = provider._translate_messages(messages)
 
+    _ALL_TOOLS = graph_tools.TOOLS + camera_tools.TOOLS
+
+    def _execute_tool(name: str, tool_input: dict) -> dict:
+        if any(t["name"] == name for t in graph_tools.TOOLS):
+            return graph_tools.execute(name, tool_input, user_id)
+        if any(t["name"] == name for t in camera_tools.TOOLS):
+            return camera_tools.execute(name, tool_input, user_id)
+        return {"success": False, "error": f"Unknown tool: {name}"}
+
     _TOOLS_SYSTEM = (
-        "\n\nYou have two tools: generate_graph_data and build_knowledge_graph."
+        "\n\nYou have these tools: generate_graph_data, build_knowledge_graph, analyze_camera."
         "\n\nRULE: When a user asks to create, build, or generate a knowledge graph or any dataset, "
         "you MUST call generate_graph_data followed immediately by build_knowledge_graph. "
         "NEVER write out the data as text, JSON, or diagrams — always use the tools instead."
+        "\n\nRULE: When a user asks about the camera, what it sees, or wants a measurement "
+        "(e.g. sourdough rise level), call analyze_camera with an appropriate question."
         "\n\nUI CONTEXT: After build_knowledge_graph succeeds, the data automatically appears in the "
-        "app's Graph tab (interactive table + visual network graph). Tell the user to check it there."
-        "\n\nAfter building, answer questions about the data directly in chat."
+        "app's Graph tab. After analyze_camera, the result appears in the Camera tab."
+        "\n\nAfter any tool, answer questions about the results directly in chat."
     )
     if system:
         system = system + _TOOLS_SYSTEM
@@ -201,21 +213,23 @@ async def _agentic_stream(
     text_parts: list[str] = []
 
     while True:
-        # Force tool use on the first turn if the user is asking for graph creation
-        _GRAPH_KEYWORDS = ("knowledge graph", "create a graph", "build a graph",
-                           "generate data", "make a graph", "graph of", "graph with")
+        _FORCE_KEYWORDS = (
+            "knowledge graph", "create a graph", "build a graph",
+            "generate data", "make a graph", "graph of", "graph with",
+            "camera", "what do you see", "sourdough", "snapshot", "analyze the",
+        )
         last_user = next((m["content"] for m in reversed(api_messages) if m["role"] == "user"), "")
         force_tools = (
-            len(api_messages) <= 2  # first or second turn
+            len(api_messages) <= 2
             and isinstance(last_user, str)
-            and any(kw in last_user.lower() for kw in _GRAPH_KEYWORDS)
+            and any(kw in last_user.lower() for kw in _FORCE_KEYWORDS)
         )
 
         kwargs: dict = {
             "model": request.config.model,
             "max_tokens": request.config.max_tokens or 2048,
             "messages": api_messages,
-            "tools": graph_tools.TOOLS,
+            "tools": _ALL_TOOLS,
             "tool_choice": {"type": "any"} if force_tools else {"type": "auto"},
         }
         if system:
@@ -259,7 +273,7 @@ async def _agentic_stream(
             if block.type != "tool_use":
                 continue
             yield f"data: {json.dumps({'tool_use': {'name': block.name, 'input': block.input}})}\n\n"
-            result = graph_tools.execute(block.name, block.input, user_id)
+            result = _execute_tool(block.name, block.input)
             logger.info("tool_executed", extra={"tool": block.name, "success": result.get("success")})
             slim_result = {k: v for k, v in result.items() if k not in ("schema", "graph")}
             yield f"data: {json.dumps({'tool_result': {'name': block.name, 'result': slim_result}})}\n\n"

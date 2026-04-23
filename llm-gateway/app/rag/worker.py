@@ -1,6 +1,7 @@
-"""arq worker: processes uploaded PDFs into chunks + embeddings."""
+"""arq worker: processes uploaded PDFs into chunks + embeddings, and periodic camera captures."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 
@@ -88,6 +89,56 @@ async def process_document(ctx: dict, document_id: str) -> None:
             )
 
 
+async def camera_capture(ctx: dict) -> None:
+    """Periodic job: fetch a camera snapshot, analyze it, and store the reading.
+
+    Only runs when CAMERA_USER_ID is set in the environment.
+    Interval controlled by CAMERA_CAPTURE_MINUTES (default: 30).
+    """
+    user_id = os.environ.get("CAMERA_USER_ID")
+    if not user_id:
+        return
+
+    question = os.environ.get(
+        "CAMERA_ANALYSIS_QUESTION",
+        "Describe what you see in this image.",
+    )
+    store_images = os.environ.get("CAMERA_STORE_IMAGES", "false").lower() == "true"
+
+    from app.camera import analyzer, cam_storage
+
+    try:
+        image = await asyncio.to_thread(analyzer.fetch_snapshot)
+        result = await asyncio.to_thread(analyzer.analyze, image, question)
+    except Exception as exc:
+        logger.error("camera_capture_failed", extra={"error": str(exc)})
+        return
+
+    image_url = None
+    if store_images:
+        try:
+            image_url = await asyncio.to_thread(cam_storage.upload_snapshot, image, user_id)
+        except Exception as exc:
+            logger.warning("camera_store_image_failed", extra={"error": str(exc)})
+
+    measurement = result.get("measurement") or {}
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO camera_readings (user_id, value, unit, label, notes, image_url)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            user_id,
+            measurement.get("value"),
+            measurement.get("unit"),
+            measurement.get("label"),
+            measurement.get("notes") or result.get("description"),
+            image_url,
+        )
+    logger.info("camera_capture_complete", extra={"user_id": user_id[:8]})
+
+
 async def startup(ctx: dict) -> None:
     await db.get_pool()
 
@@ -96,8 +147,11 @@ async def shutdown(ctx: dict) -> None:
     await db.close_pool()
 
 
+_capture_minutes = int(os.environ.get("CAMERA_CAPTURE_MINUTES", "30"))
+
 class WorkerSettings:
-    functions = [process_document]
+    functions = [process_document, camera_capture]
+    cron_jobs = [cron(camera_capture, minute={i for i in range(0, 60, _capture_minutes)})]
     redis_settings = RedisSettings.from_dsn(
         os.environ.get("REDIS_URL", "redis://localhost:6379")
     )

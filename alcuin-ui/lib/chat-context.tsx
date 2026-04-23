@@ -1,10 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react"
-import type { Message, Document, ChatSettings, User, GraphSchema, GraphData } from "./types"
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-const GATEWAY_API_KEY = process.env.NEXT_PUBLIC_GATEWAY_API_KEY ?? ""
+import type { Message, Document, ChatSettings, User, GraphSchema, GraphData, CameraReading } from "./types"
+import { tokens, apiFetch } from "./api"
 
 interface ChatContextType {
   company: string | null
@@ -27,8 +25,8 @@ interface ChatContextType {
   // Active tool calls
   activeTools: string[]
   // Graph
-  view: "chat" | "graph"
-  setView: (v: "chat" | "graph") => void
+  view: "chat" | "graph" | "camera"
+  setView: (v: "chat" | "graph" | "camera") => void
   graphSchema: GraphSchema | null
   graphData: GraphData | null
   graphLoading: boolean
@@ -36,6 +34,10 @@ interface ChatContextType {
   setUseGraph: (v: boolean) => void
   generateGraphData: (prompt: string) => Promise<string | null>
   buildGraph: () => Promise<string | null>
+  // Camera
+  cameraReadings: CameraReading[]
+  analyzeCamera: (question: string, storeImage?: boolean) => Promise<string | null>
+  fetchCameraReadings: () => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -50,50 +52,6 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15)
 }
 
-// ── Token storage ─────────────────────────────────────────────────
-const tokens = {
-  get access()   { return typeof window !== "undefined" ? localStorage.getItem("access_token") : null },
-  get refresh()  { return typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null },
-  get username() { return typeof window !== "undefined" ? localStorage.getItem("auth_username") : null },
-  set(access: string, refresh: string, username: string) {
-    localStorage.setItem("access_token",  access)
-    localStorage.setItem("refresh_token", refresh)
-    localStorage.setItem("auth_username", username)
-  },
-  clear() {
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("refresh_token")
-    localStorage.removeItem("auth_username")
-  },
-}
-
-// ── Authenticated fetch with auto-refresh ─────────────────────────
-async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers: Record<string, string> = {
-    "X-API-Key": GATEWAY_API_KEY,
-    ...(options.headers as Record<string, string> ?? {}),
-  }
-  if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`
-
-  let resp = await fetch(`${API_BASE}${url}`, { ...options, headers })
-
-  if (resp.status === 401 && tokens.refresh) {
-    const refreshResp = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": GATEWAY_API_KEY },
-      body: JSON.stringify({ refresh_token: tokens.refresh }),
-    })
-    if (refreshResp.ok) {
-      const data = await refreshResp.json()
-      tokens.set(data.access_token, data.refresh_token, tokens.username ?? "")
-      headers["Authorization"] = `Bearer ${data.access_token}`
-      resp = await fetch(`${API_BASE}${url}`, { ...options, headers })
-    } else {
-      tokens.clear()
-    }
-  }
-  return resp
-}
 
 // Parses FastAPI error responses into a human-readable string.
 // 422 responses have detail as an array of validation errors.
@@ -119,7 +77,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   const [documents, setDocuments] = useState<Document[]>([])
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({})
 
-  const [view, setView] = useState<"chat" | "graph">("chat")
+  const [view, setView] = useState<"chat" | "graph" | "camera">("chat")
   const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null)
   const [graphData, setGraphData] = useState<GraphData | null>(null)
   const [graphLoading, setGraphLoading] = useState(false)
@@ -418,6 +376,41 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
     }
   }, [])
 
+  // ── Camera ────────────────────────────────────────────────────────
+  const [cameraReadings, setCameraReadings] = useState<CameraReading[]>([])
+
+  const fetchCameraReadings = useCallback(async () => {
+    const resp = await apiFetch("/api/v1/camera/readings")
+    if (!resp.ok) return
+    const data = await resp.json()
+    setCameraReadings(data.readings ?? [])
+  }, [])
+
+  const analyzeCamera = useCallback(async (question: string, storeImage = false): Promise<string | null> => {
+    const params = new URLSearchParams({ question, store_image: String(storeImage) })
+    try {
+      const resp = await apiFetch(`/api/v1/camera/analyze?${params}`, { method: "POST" })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        return parseApiError(err, resp.status)
+      }
+      const data = await resp.json()
+      const reading: CameraReading = {
+        id: crypto.randomUUID(),
+        captured_at: new Date().toISOString(),
+        value: data.result?.measurement?.value ?? null,
+        unit: data.result?.measurement?.unit ?? null,
+        label: data.result?.measurement?.label ?? null,
+        notes: data.result?.measurement?.notes ?? data.result?.description ?? null,
+        image_url: data.image_url ?? null,
+      }
+      setCameraReadings((prev) => [...prev, reading])
+      return null
+    } catch {
+      return "Could not reach the server."
+    }
+  }, [])
+
   const buildGraph = useCallback(async (): Promise<string | null> => {
     setGraphLoading(true)
     try {
@@ -448,6 +441,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
       activeTools,
       view, setView, graphSchema, graphData, graphLoading,
       useGraph, setUseGraph, generateGraphData, buildGraph,
+      cameraReadings, analyzeCamera, fetchCameraReadings,
     }}>
       {children}
     </ChatContext.Provider>

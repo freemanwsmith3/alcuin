@@ -75,3 +75,13 @@ export interface GraphData {
   nodes: GraphNode[]
   edges: GraphEdge[]
 }
+
+export interface CameraReading {
+  id: string
+  captured_at: string
+  value: number | null
+  unit: string | null
+  label: string | null
+  notes: string | null
+  image_url: string | null
+}

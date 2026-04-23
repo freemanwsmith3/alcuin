@@ -10,6 +10,7 @@ import { Menu, MessageSquare, Database, Zap, Network, Wrench } from "lucide-reac
 const TOOL_LABELS: Record<string, string> = {
   generate_graph_data: "Generating Data",
   build_knowledge_graph: "Building Graph",
+  analyze_camera: "Analyzing Camera",
 }
 
 export function ChatHeader() {

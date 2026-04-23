@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { useChatContext } from "@/lib/chat-context"
 import { cn } from "@/lib/utils"
-import { User, Bot, Sparkles, GitBranch, CheckCircle2, XCircle } from "lucide-react"
+import { User, Bot, Sparkles, GitBranch, CheckCircle2, XCircle, Camera } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { ToolCall } from "@/lib/types"
@@ -57,6 +57,40 @@ function ToolCard({ toolCall }: { toolCall: ToolCall }) {
               <p className="mt-1 text-muted-foreground">
                 {result.nodes as number} nodes · {result.edges as number} edges · Graph active in chat
               </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-4 w-4" />
+              {result.error as string}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (name === "analyze_camera") {
+    const measurement = result.measurement as Record<string, unknown> | undefined
+    return (
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/20">
+          <Camera className="h-4 w-4 text-blue-400" />
+        </div>
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm">
+          {ok ? (
+            <>
+              <div className="flex items-center gap-2 font-medium text-blue-300">
+                <CheckCircle2 className="h-4 w-4" />
+                Camera Snapshot Analyzed
+              </div>
+              {measurement?.value !== undefined ? (
+                <p className="mt-1 text-muted-foreground">
+                  {measurement.label as string} · <span className="font-medium text-foreground">{measurement.value as number}{measurement.unit ? ` ${measurement.unit}` : ""}</span>
+                  {measurement.notes ? ` · ${measurement.notes}` : ""}
+                </p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">{result.description as string}</p>
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2 text-destructive">

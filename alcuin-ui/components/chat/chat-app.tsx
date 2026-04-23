@@ -7,6 +7,7 @@ import { ChatHeader } from "./chat-header"
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { GraphPanel } from "@/components/graph/graph-panel"
+import { CameraPanel } from "@/components/camera/camera-panel"
 
 function ChatLayout() {
   const { view } = useChatContext()
@@ -21,6 +22,8 @@ function ChatLayout() {
         <ChatHeader />
         {view === "graph" ? (
           <GraphPanel />
+        ) : view === "camera" ? (
+          <CameraPanel />
         ) : (
           <>
             <MessageList />
