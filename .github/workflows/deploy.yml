@@ -24,3 +24,5 @@ jobs:
             sudo docker compose up -d
             sudo docker compose exec -T postgres psql -U gateway -d gateway \
               -c "SELECT 1" > /dev/null && echo "DB healthy"
+            sudo docker compose exec -T postgres psql -U gateway -d gateway \
+              -f /docker-entrypoint-initdb.d/003_camera_schema.sql && echo "migrations ok"
