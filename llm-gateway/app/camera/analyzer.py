@@ -12,8 +12,7 @@ from anthropic import Anthropic
 logger = logging.getLogger(__name__)
 
 _client = Anthropic()
-_MOTIONEYE_URL = os.environ.get("MOTIONEYE_URL", "")
-_CAMERA_ID = os.environ.get("MOTIONEYE_CAMERA_ID", "1")
+_CAMERA_SNAPSHOT_URL = os.environ.get("CAMERA_SNAPSHOT_URL", "")
 
 _SYSTEM = """\
 You analyze images from a camera.
@@ -24,10 +23,9 @@ Otherwise describe what you see in 1-2 sentences.
 
 
 def fetch_snapshot() -> bytes:
-    if not _MOTIONEYE_URL:
-        raise RuntimeError("MOTIONEYE_URL not configured")
-    url = f"{_MOTIONEYE_URL}/picture/{_CAMERA_ID}/current/"
-    resp = httpx.get(url, timeout=10)
+    if not _CAMERA_SNAPSHOT_URL:
+        raise RuntimeError("CAMERA_SNAPSHOT_URL not configured")
+    resp = httpx.get(_CAMERA_SNAPSHOT_URL, timeout=10)
     resp.raise_for_status()
     return resp.content
 
