@@ -99,9 +99,9 @@ async def camera_capture(ctx: dict) -> None:
     if not user_id:
         return
 
-    question = os.environ.get(
-        "CAMERA_ANALYSIS_QUESTION",
-        "Describe what you see in this image.",
+    question = (
+        'Estimate what percentage of the jar is filled. '
+        'Return JSON: {"value": <0-100>, "unit": "pct", "label": "fill level", "notes": "<observations>"}'
     )
     store_images = os.environ.get("CAMERA_STORE_IMAGES", "false").lower() == "true"
 
