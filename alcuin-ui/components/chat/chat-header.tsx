@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ChatSidebar } from "./chat-sidebar"
-import { Menu, MessageSquare, Database, Zap, Network, Wrench, PanelLeft } from "lucide-react"
+import { Menu, MessageSquare, Database, Zap, Network, Wrench, PanelLeft, Camera } from "lucide-react"
 
 const TOOL_LABELS: Record<string, string> = {
   generate_graph_data: "Generating Data",
@@ -14,7 +14,7 @@ const TOOL_LABELS: Record<string, string> = {
 }
 
 export function ChatHeader({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void }) {
-  const { company, ragActive, isTyping, settings, useGraph, activeTools } = useChatContext()
+  const { company, ragActive, isTyping, settings, useGraph, showGraph, showCamera, activeTools } = useChatContext()
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
@@ -66,10 +66,16 @@ export function ChatHeader({ sidebarOpen, onToggleSidebar }: { sidebarOpen: bool
             {TOOL_LABELS[tool] ?? tool}
           </Badge>
         ))}
-        {useGraph && (
+        {showGraph && useGraph && (
           <Badge variant="secondary" className="gap-1 bg-purple-500/20 text-purple-400">
             <Network className="h-3 w-3" />
             Graph Active
+          </Badge>
+        )}
+        {showCamera && (
+          <Badge variant="secondary" className="gap-1 bg-blue-500/20 text-blue-400">
+            <Camera className="h-3 w-3" />
+            Camera Active
           </Badge>
         )}
         {settings.streamResponse && (
