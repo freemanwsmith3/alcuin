@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ChatSidebar } from "./chat-sidebar"
-import { Menu, MessageSquare, Database, Zap, Network, Wrench } from "lucide-react"
+import { Menu, MessageSquare, Database, Zap, Network, Wrench, PanelLeft } from "lucide-react"
 
 const TOOL_LABELS: Record<string, string> = {
   generate_graph_data: "Generating Data",
@@ -13,12 +13,16 @@ const TOOL_LABELS: Record<string, string> = {
   analyze_camera: "Analyzing Camera",
 }
 
-export function ChatHeader() {
+export function ChatHeader({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void }) {
   const { company, ragActive, isTyping, settings, useGraph, activeTools } = useChatContext()
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-3">
+        {/* Desktop sidebar toggle */}
+        <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="hidden lg:flex" title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+          <PanelLeft className="h-5 w-5" />
+        </Button>
         {/* Mobile menu */}
         <Sheet>
           <SheetTrigger asChild>

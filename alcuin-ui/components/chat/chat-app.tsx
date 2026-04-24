@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useCallback } from "react"
 import { ChatProvider, useChatContext } from "@/lib/chat-context"
 import { AuthOverlay } from "./auth-overlay"
 import { ChatSidebar } from "./chat-sidebar"
@@ -55,15 +56,29 @@ function SidePanel() {
 }
 
 function ChatLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("sidebar_open") !== "false" : true
+  )
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => {
+      const next = !prev
+      localStorage.setItem("sidebar_open", String(next))
+      return next
+    })
+  }, [])
+
   return (
     <div className="flex h-screen bg-background">
-      <aside className="hidden w-80 shrink-0 border-r border-border lg:block">
-        <ChatSidebar />
+      <aside className={`hidden lg:block shrink-0 border-r border-border overflow-hidden transition-[width] duration-200 ${sidebarOpen ? "w-80" : "w-0"}`}>
+        <div className="w-80">
+          <ChatSidebar />
+        </div>
       </aside>
 
       <main className="flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col overflow-hidden">
-          <ChatHeader />
+          <ChatHeader sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
           <MessageList />
           <ChatInput />
         </div>
