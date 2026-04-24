@@ -14,6 +14,7 @@ interface ChatContextType {
   messages: Message[]
   isTyping: boolean
   sessionId: string | null
+  sessionTitle: string | null
   newSession: () => void
   sendMessage: (content: string) => Promise<void>
   documents: Document[]
@@ -74,10 +75,11 @@ function parseApiError(body: Record<string, unknown>, status: number): string {
 
 export function ChatProvider({ children, company = null }: { children: ReactNode; company?: string | null }) {
   const [user, setUser]           = useState<User | null>(null)
-  const [messages, setMessages]   = useState<Message[]>([])
-  const [isTyping, setIsTyping]   = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [messages, setMessages]     = useState<Message[]>([])
+  const [isTyping, setIsTyping]     = useState(false)
+  const [sessionId, setSessionId]   = useState<string | null>(null)
+  const [sessionTitle, setSessionTitle] = useState<string | null>(null)
+  const [documents, setDocuments]   = useState<Document[]>([])
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({})
 
   const [showGraph, setShowGraphState] = useState(() =>
@@ -182,12 +184,31 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   }, [])
 
   // ── Chat ──────────────────────────────────────────────────────────
+  const generateTitle = useCallback(async (firstUserMessage: string) => {
+    try {
+      const resp = await apiFetch("/api/v1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: `Give a 4-6 word title for a chat session that starts with: "${firstUserMessage.slice(0, 200)}". Reply with only the title, no quotes or punctuation.` }],
+          config: { model: "claude-haiku-4-5", temperature: 0, max_tokens: 20 },
+        }),
+      })
+      if (!resp.ok) return
+      const data = await resp.json()
+      const title = (data.response?.content as string)?.trim()
+      if (title) setSessionTitle(title)
+    } catch { /* silent */ }
+  }, [])
+
   const newSession = useCallback(() => {
     setMessages([])
     setSessionId(null)
+    setSessionTitle(null)
   }, [])
 
   const sendMessage = useCallback(async (content: string) => {
+    const isFirstMessage = messages.length === 0
     const userMessage: Message = {
       id: generateId(),
       role: "user",
@@ -283,6 +304,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
             }
           }
         }
+        if (isFirstMessage) generateTitle(content)
         // After stream ends, fetch fresh graph data if a build happened
         if (sawGraphBuild) {
           const gResp = await apiFetch("/api/v1/graph/")
@@ -304,6 +326,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
         if (!resp.ok) return
         const data = await resp.json()
         if (data.session_id) setSessionId(data.session_id)
+        if (isFirstMessage) generateTitle(content)
         setMessages((prev) => [...prev, {
           id: generateId(),
           role: "assistant",
@@ -445,7 +468,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
     <ChatContext.Provider value={{
       company,
       user, isAuthenticated, login, register, logout,
-      messages, isTyping, sessionId, newSession, sendMessage,
+      messages, isTyping, sessionId, sessionTitle, newSession, sendMessage,
       documents, uploadDocument, toggleDocument, ragActive,
       settings, updateSettings,
       activeTools,

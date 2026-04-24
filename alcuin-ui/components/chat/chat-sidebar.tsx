@@ -80,6 +80,7 @@ export function ChatSidebar({ onCollapse }: { onCollapse: () => void }) {
     user,
     logout,
     sessionId,
+    sessionTitle,
     newSession,
     documents,
     uploadDocument,
@@ -259,7 +260,13 @@ export function ChatSidebar({ onCollapse }: { onCollapse: () => void }) {
           <div className="flex flex-col gap-3">
             <Label className="text-xs font-medium text-muted-foreground">Session</Label>
             <div className="rounded-md border border-sidebar-border bg-sidebar-accent/50 p-2">
-              <p className="break-all font-mono text-[10px] text-muted-foreground">{sessionId}</p>
+              {sessionTitle ? (
+                <p className="text-xs text-foreground">{sessionTitle}</p>
+              ) : sessionId ? (
+                <p className="text-xs text-muted-foreground italic">Generating title…</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">No active session</p>
+              )}
             </div>
             <Button variant="outline" size="sm" onClick={newSession} className="w-full gap-2">
               <Plus className="h-4 w-4" />
