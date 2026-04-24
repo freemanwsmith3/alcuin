@@ -9,6 +9,7 @@ import { Send, Paperclip, Camera } from "lucide-react"
 export function ChatInput() {
   const { sendMessage, isTyping, uploadDocument, showCamera, setShowCamera } = useChatContext()
   const [input, setInput] = useState("")
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -27,12 +28,16 @@ export function ChatInput() {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
-      Array.from(files).forEach((file) => {
-        if (file.type === "application/pdf") uploadDocument(file)
-      })
+      setUploadError(null)
+      for (const file of Array.from(files)) {
+        if (file.type === "application/pdf") {
+          const err = await uploadDocument(file)
+          if (err) { setUploadError(err); break }
+        }
+      }
     }
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
@@ -47,6 +52,9 @@ export function ChatInput() {
 
   return (
     <div className="border-t border-border bg-background p-4">
+      {uploadError && (
+        <p className="mx-auto mb-2 max-w-3xl text-xs text-destructive">{uploadError}</p>
+      )}
       <form onSubmit={handleSubmit} className="mx-auto flex max-w-3xl items-end gap-2">
         <input
           ref={fileInputRef}

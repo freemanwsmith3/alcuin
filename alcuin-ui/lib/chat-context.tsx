@@ -18,7 +18,7 @@ interface ChatContextType {
   newSession: () => void
   sendMessage: (content: string) => Promise<void>
   documents: Document[]
-  uploadDocument: (file: File) => Promise<void>
+  uploadDocument: (file: File) => Promise<string | null>
   toggleDocument: (id: string) => void
   ragActive: boolean
   settings: ChatSettings
@@ -363,18 +363,25 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
     pollTimers.current[docId] = setInterval(tick, 3000)
   }, [])
 
-  const uploadDocument = useCallback(async (file: File) => {
+  const uploadDocument = useCallback(async (file: File): Promise<string | null> => {
     const form = new FormData()
     form.append("file", file)
     try {
       const resp = await apiFetch("/api/v1/rag/documents", { method: "POST", body: form })
-      if (!resp.ok) return
+      if (!resp.ok) {
+        if (resp.status === 413) return "File too large. Please upload a smaller PDF."
+        const err = await resp.json().catch(() => ({}))
+        return parseApiError(err as Record<string, unknown>, resp.status)
+      }
       const data = await resp.json()
       setDocuments((prev) => [...prev, {
         id: data.document_id, name: data.filename, status: "pending", selected: false,
       }])
       pollStatus(data.document_id)
-    } catch { /* ignore */ }
+      return null
+    } catch {
+      return "Could not reach the server. Please try again."
+    }
   }, [pollStatus])
 
   const toggleDocument = useCallback((id: string) => {
