@@ -19,10 +19,12 @@ export function ChatHeader({ sidebarOpen, onToggleSidebar }: { sidebarOpen: bool
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-3">
-        {/* Desktop sidebar toggle */}
-        <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="hidden lg:flex" title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-          <PanelLeft className="h-5 w-5" />
-        </Button>
+        {/* Expand button — only visible when sidebar is collapsed */}
+        {!sidebarOpen && (
+          <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="hidden lg:flex" title="Expand sidebar">
+            <PanelLeft className="h-5 w-5" />
+          </Button>
+        )}
         {/* Mobile menu */}
         <Sheet>
           <SheetTrigger asChild>
@@ -32,7 +34,7 @@ export function ChatHeader({ sidebarOpen, onToggleSidebar }: { sidebarOpen: bool
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-80 p-0">
-            <ChatSidebar />
+            <ChatSidebar onCollapse={() => {}} />
           </SheetContent>
         </Sheet>
 

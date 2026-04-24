@@ -72,7 +72,7 @@ function ChatLayout() {
     <div className="flex h-screen bg-background">
       <aside className={`hidden lg:block shrink-0 border-r border-border overflow-hidden transition-[width] duration-200 ${sidebarOpen ? "w-80" : "w-0"}`}>
         <div className="w-80">
-          <ChatSidebar />
+          <ChatSidebar onCollapse={toggleSidebar} />
         </div>
       </aside>
 

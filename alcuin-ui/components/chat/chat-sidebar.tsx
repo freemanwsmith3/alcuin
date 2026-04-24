@@ -31,6 +31,7 @@ import {
   XCircle,
   Clock,
   Camera,
+  ChevronLeft,
 } from "lucide-react"
 
 const models: { value: Model; label: string }[] = [
@@ -74,7 +75,7 @@ function getStatusBadge(status: DocumentStatus) {
   }
 }
 
-export function ChatSidebar() {
+export function ChatSidebar({ onCollapse }: { onCollapse: () => void }) {
   const {
     user,
     logout,
@@ -112,13 +113,16 @@ export function ChatSidebar() {
     <div className="flex h-full flex-col bg-sidebar">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-sidebar-border p-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-accent">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
           <MessageSquare className="h-5 w-5 text-sidebar-foreground" />
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-sm font-semibold text-sidebar-foreground truncate">{company ?? "Alcuin"}</h1>
           <p className="text-xs text-muted-foreground">AI Chat Assistant</p>
         </div>
+        <Button variant="ghost" size="icon" onClick={onCollapse} className="hidden lg:flex shrink-0 text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Panel toggles */}
