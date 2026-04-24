@@ -140,6 +140,8 @@ async def camera_capture(ctx: dict) -> None:
 
 
 async def startup(ctx: dict) -> None:
+    from app.keyvault import load_secrets
+    load_secrets()
     await db.get_pool()
 
 
