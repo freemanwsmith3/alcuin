@@ -24,9 +24,12 @@ interface ChatContextType {
   updateSettings: (settings: Partial<ChatSettings>) => void
   // Active tool calls
   activeTools: string[]
+  // Panels
+  showGraph: boolean
+  setShowGraph: (v: boolean) => void
+  showCamera: boolean
+  setShowCamera: (v: boolean) => void
   // Graph
-  view: "chat" | "graph" | "camera"
-  setView: (v: "chat" | "graph" | "camera") => void
   graphSchema: GraphSchema | null
   graphData: GraphData | null
   graphLoading: boolean
@@ -77,7 +80,14 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
   const [documents, setDocuments] = useState<Document[]>([])
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({})
 
-  const [view, setView] = useState<"chat" | "graph" | "camera">("chat")
+  const [showGraph, setShowGraphState] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("show_graph") === "true" : false
+  )
+  const setShowGraph = useCallback((v: boolean) => {
+    setShowGraphState(v)
+    if (typeof window !== "undefined") localStorage.setItem("show_graph", String(v))
+  }, [])
+  const [showCamera, setShowCamera] = useState(false)
   const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null)
   const [graphData, setGraphData] = useState<GraphData | null>(null)
   const [graphLoading, setGraphLoading] = useState(false)
@@ -281,7 +291,7 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
             if (gData.schema) setGraphSchema(gData.schema)
             if (gData.graph) setGraphData(gData.graph)
             setUseGraph(true)
-            setView("graph")
+            setShowGraph(true)
           }
         }
       } else {
@@ -439,7 +449,8 @@ export function ChatProvider({ children, company = null }: { children: ReactNode
       documents, uploadDocument, toggleDocument, ragActive,
       settings, updateSettings,
       activeTools,
-      view, setView, graphSchema, graphData, graphLoading,
+      showGraph, setShowGraph, showCamera, setShowCamera,
+      graphSchema, graphData, graphLoading,
       useGraph, setUseGraph, generateGraphData, buildGraph,
       cameraReadings, analyzeCamera, fetchCameraReadings,
     }}>

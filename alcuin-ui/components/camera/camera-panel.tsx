@@ -94,9 +94,9 @@ function ReadingsChart({ readings }: { readings: CameraReading[] }) {
         <Tooltip
           contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6 }}
           labelStyle={{ color: "hsl(var(--foreground))", fontSize: 12 }}
-          formatter={(v: number, _name: string, item: { payload: { notes: string } }) => [
+          formatter={(v: number, _name: string, item) => [
             `${v}${unit ? ` ${unit}` : ""}`,
-            item.payload.notes || "value",
+            (item.payload as { notes?: string })?.notes || "value",
           ]}
         />
         <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
@@ -126,7 +126,7 @@ export function CameraPanel() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto p-6 gap-6">
+    <div className="flex flex-col p-6 gap-6">
       {/* Live feed */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">

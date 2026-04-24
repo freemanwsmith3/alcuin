@@ -30,7 +30,7 @@ export function GraphPanel() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto p-6 gap-6">
+    <div className="flex flex-col p-6 gap-6">
       {/* Step 1: Generate */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">

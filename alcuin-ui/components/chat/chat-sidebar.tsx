@@ -86,8 +86,10 @@ export function ChatSidebar() {
     settings,
     updateSettings,
     company,
-    view,
-    setView,
+    showGraph,
+    setShowGraph,
+    showCamera,
+    setShowCamera,
   } = useChatContext()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -119,25 +121,19 @@ export function ChatSidebar() {
         </div>
       </div>
 
-      {/* View toggle */}
-      <div className="flex border-b border-sidebar-border">
+      {/* Panel toggles */}
+      <div className="flex gap-2 border-b border-sidebar-border px-3 py-2">
         <button
-          onClick={() => setView("chat")}
-          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${view === "chat" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <MessageSquare className="h-3.5 w-3.5" /> Chat
-        </button>
-        <button
-          onClick={() => setView("graph")}
-          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${view === "graph" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <Network className="h-3.5 w-3.5" /> Graph
-        </button>
-        <button
-          onClick={() => setView("camera")}
-          className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${view === "camera" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setShowCamera(!showCamera)}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${showCamera ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           <Camera className="h-3.5 w-3.5" /> Camera
+        </button>
+        <button
+          onClick={() => setShowGraph(!showGraph)}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${showGraph ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Network className="h-3.5 w-3.5" /> Graph
         </button>
       </div>
 
