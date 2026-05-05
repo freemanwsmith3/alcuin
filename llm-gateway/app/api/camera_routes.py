@@ -16,6 +16,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/camera", tags=["camera"])
 
 
+@router.get("/live")
+async def live() -> Response:
+    """Public unauthenticated endpoint — returns the latest JPEG frame."""
+    try:
+        image = analyzer.fetch_snapshot()
+    except Exception as e:
+        logger.error("camera_live_error", extra={"error": str(e)})
+        raise HTTPException(status_code=502, detail="Could not reach camera")
+    return Response(content=image, media_type="image/jpeg")
+
+
 @router.get("/snapshot")
 async def snapshot(user: CurrentUser = Depends(get_current_user)) -> Response:
     """Proxy the latest JPEG frame from the camera."""
