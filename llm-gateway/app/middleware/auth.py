@@ -17,7 +17,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     If GATEWAY_API_KEY is not configured, all /api/* requests are blocked.
     """
 
-    _SKIP_PREFIXES = ("/docs", "/redoc", "/openapi.json", "/api/v1/auth")
+    _SKIP_PREFIXES = ("/docs", "/redoc", "/openapi.json", "/api/v1/auth", "/api/v1/camera/live")
 
     async def dispatch(
         self,
